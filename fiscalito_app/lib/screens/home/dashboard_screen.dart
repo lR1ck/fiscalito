@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../config/routes.dart';
+import '../../providers/navigation_provider.dart';
 
 /// Pantalla principal del dashboard fiscal
 ///
@@ -8,7 +10,6 @@ import '../../config/routes.dart';
 /// - Resumen del estado fiscal del usuario
 /// - Próximas obligaciones
 /// - Acceso rápido a features principales
-/// - Bottom navigation bar para navegación
 ///
 /// Los datos mostrados son mock por ahora. En producción,
 /// se cargarán desde Firestore y APIs del SAT.
@@ -20,9 +21,6 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  /// Índice actual del bottom navigation bar
-  int _currentNavIndex = 0;
-
   /// Estado de loading al cargar datos
   bool _isLoading = false;
 
@@ -171,59 +169,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentNavIndex,
-        onTap: (index) {
-          setState(() => _currentNavIndex = index);
-
-          // TODO: Implementar navegación real cuando existan las pantallas
-          switch (index) {
-            case 0:
-              // Dashboard - ya estamos aquí
-              break;
-            case 1:
-              // Chat
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Chat próximamente')),
-              );
-              break;
-            case 2:
-              // Facturas
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Facturas próximamente')),
-              );
-              break;
-            case 3:
-              // Perfil
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Perfil próximamente')),
-              );
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Inicio',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            activeIcon: Icon(Icons.chat_bubble),
-            label: 'Chat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_outlined),
-            activeIcon: Icon(Icons.receipt_long),
-            label: 'Facturas',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Perfil',
-          ),
-        ],
       ),
     );
   }
@@ -411,16 +356,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   /// Grid de accesos rápidos
   Widget _buildQuickAccessGrid() {
+    final navigationProvider = Provider.of<NavigationProvider>(context, listen: false);
+
     final quickActions = [
       _QuickAction(
         icon: Icons.chat_bubble_outline,
         label: 'Chat con AI',
         color: AppTheme.primaryMagenta,
         onTap: () {
-          // TODO: Navegar a chat
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Chat próximamente')),
-          );
+          // Navegar a Chat (índice 1)
+          navigationProvider.goToChat();
         },
       ),
       _QuickAction(
@@ -428,10 +373,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         label: 'Subir factura',
         color: AppTheme.infoBlue,
         onTap: () {
-          // TODO: Navegar a subir CFDI
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Subir factura próximamente')),
-          );
+          // Navegar a Facturas (índice 2) y mostrar opción de subir
+          navigationProvider.goToFacturas();
+          // TODO: En el futuro, abrir directamente el diálogo de subir
         },
       ),
       _QuickAction(
@@ -439,9 +383,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         label: 'Escanear',
         color: AppTheme.successGreen,
         onTap: () {
-          // TODO: Abrir scanner OCR
+          // TODO: Abrir scanner OCR (feature próxima)
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Scanner próximamente')),
+            const SnackBar(content: Text('Scanner OCR próximamente')),
           );
         },
       ),
@@ -450,7 +394,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         label: 'Obligaciones',
         color: AppTheme.warningOrange,
         onTap: () {
-          // TODO: Navegar a obligaciones
+          // TODO: Navegar a obligaciones (pantalla próxima)
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Obligaciones próximamente')),
           );

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../screens/splash_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
-import '../screens/home/dashboard_screen.dart';
+import '../screens/main_screen.dart';
 
 /// Configuración de rutas de navegación de la aplicación
 ///
@@ -53,11 +53,9 @@ class AppRoutes {
       splash: (context) => const SplashScreen(),
       login: (context) => const LoginScreen(),
       register: (context) => const RegisterScreen(),
-      dashboard: (context) => const DashboardScreen(),
+      dashboard: (context) => const MainScreen(),
       // TODO: Agregar rutas adicionales cuando se implementen las pantallas
-      // chat: (context) => const ChatScreen(),
       // obligations: (context) => const ObligationsScreen(),
-      // cfdiList: (context) => const CfdiListScreen(),
       // cfdiUpload: (context) => const CfdiUploadScreen(),
     };
   }
