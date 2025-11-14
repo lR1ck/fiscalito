@@ -34,12 +34,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             onPressed: () {
-              // TODO: Editar perfil
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Editar perfil próximamente'),
-                ),
-              );
+              // Navegar a editar perfil
+              AppRoutes.pushNamed(context, AppRoutes.editProfile);
             },
           ),
         ],
@@ -61,11 +57,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   label: 'RFC',
                   value: _userRFC,
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Ver detalles del RFC'),
-                      ),
-                    );
+                    AppRoutes.pushNamed(context, AppRoutes.rfcDetails);
                   },
                 ),
                 _buildInfoTile(
@@ -73,11 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   label: 'Régimen Fiscal',
                   value: 'RESICO',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Información del régimen'),
-                      ),
-                    );
+                    AppRoutes.pushNamed(context, AppRoutes.regimenFiscal);
                   },
                 ),
                 _buildInfoTile(
@@ -85,11 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   label: 'Domicilio Fiscal',
                   value: 'Ciudad de México',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Ver domicilio completo'),
-                      ),
-                    );
+                    AppRoutes.pushNamed(context, AppRoutes.domicilioFiscal);
                   },
                 ),
               ],
@@ -125,11 +109,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: Icons.lock_outlined,
                   label: 'Cambiar contraseña',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Cambiar contraseña próximamente'),
-                      ),
-                    );
+                    AppRoutes.pushNamed(context, AppRoutes.changePassword);
                   },
                 ),
               ],
@@ -143,33 +123,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: Icons.help_outline,
                   label: 'Centro de ayuda',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Centro de ayuda próximamente'),
-                      ),
-                    );
+                    AppRoutes.pushNamed(context, AppRoutes.helpCenter);
                   },
                 ),
                 _buildActionTile(
                   icon: Icons.privacy_tip_outlined,
                   label: 'Política de privacidad',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Ver política de privacidad'),
-                      ),
-                    );
+                    AppRoutes.pushNamed(context, AppRoutes.privacyPolicy);
                   },
                 ),
                 _buildActionTile(
                   icon: Icons.description_outlined,
                   label: 'Términos de servicio',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Ver términos de servicio'),
-                      ),
-                    );
+                    AppRoutes.pushNamed(context, AppRoutes.termsOfService);
                   },
                 ),
                 _buildActionTile(
@@ -183,7 +151,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   onTap: () {
-                    _showAboutDialog();
+                    AppRoutes.pushNamed(context, AppRoutes.about);
                   },
                 ),
               ],

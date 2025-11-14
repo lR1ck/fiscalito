@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/theme.dart';
+import '../../config/routes.dart';
 
 /// Pantalla de obligaciones fiscales
 ///
@@ -583,12 +584,7 @@ class _ObligationsScreenState extends State<ObligationsScreen> {
 
   /// Maneja la configuración de recordatorios
   void _handleSetReminder() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Configuración de recordatorios próximamente'),
-        backgroundColor: AppTheme.infoBlue,
-      ),
-    );
+    AppRoutes.pushNamed(context, AppRoutes.reminderSettings);
   }
 
   // Helpers

@@ -106,12 +106,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
             onPressed: () {
-              // TODO: Implementar notificaciones
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Notificaciones próximamente'),
-                ),
-              );
+              // Navegar a notificaciones
+              AppRoutes.pushNamed(context, AppRoutes.notifications);
             },
           ),
           IconButton(
@@ -391,10 +387,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         label: 'Escanear',
         color: AppTheme.successGreen,
         onTap: () {
-          // TODO: Abrir scanner OCR (feature próxima)
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Scanner OCR próximamente')),
-          );
+          // Navegar a scanner OCR
+          AppRoutes.pushNamed(context, AppRoutes.scan);
         },
       ),
       _QuickAction(

@@ -4,7 +4,19 @@ import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/main_screen.dart';
 import '../screens/obligations/obligations_screen.dart';
+import '../screens/obligations/reminder_settings_screen.dart';
 import '../screens/cfdi/cfdi_upload_screen.dart';
+import '../screens/notifications/notifications_screen.dart';
+import '../screens/scan/scan_screen.dart';
+import '../screens/profile/edit_profile_screen.dart';
+import '../screens/profile/rfc_details_screen.dart';
+import '../screens/profile/regimen_fiscal_screen.dart';
+import '../screens/profile/domicilio_fiscal_screen.dart';
+import '../screens/profile/change_password_screen.dart';
+import '../screens/profile/help_center_screen.dart';
+import '../screens/profile/privacy_policy_screen.dart';
+import '../screens/profile/terms_of_service_screen.dart';
+import '../screens/profile/about_screen.dart';
 
 /// Configuración de rutas de navegación de la aplicación
 ///
@@ -42,6 +54,26 @@ class AppRoutes {
   /// Ruta para subir CFDI
   static const String cfdiUpload = '/cfdi-upload';
 
+  /// Ruta de notificaciones
+  static const String notifications = '/notifications';
+
+  /// Ruta de escaneo OCR
+  static const String scan = '/scan';
+
+  /// Ruta de configuración de recordatorios
+  static const String reminderSettings = '/reminder-settings';
+
+  /// Rutas de Profile
+  static const String editProfile = '/edit-profile';
+  static const String rfcDetails = '/rfc-details';
+  static const String regimenFiscal = '/regimen-fiscal';
+  static const String domicilioFiscal = '/domicilio-fiscal';
+  static const String changePassword = '/change-password';
+  static const String helpCenter = '/help-center';
+  static const String privacyPolicy = '/privacy-policy';
+  static const String termsOfService = '/terms-of-service';
+  static const String about = '/about';
+
   // =========================================================================
   // MAPA DE RUTAS
   // =========================================================================
@@ -58,6 +90,18 @@ class AppRoutes {
       dashboard: (context) => const MainScreen(),
       obligations: (context) => const ObligationsScreen(),
       cfdiUpload: (context) => const CfdiUploadScreen(),
+      notifications: (context) => const NotificationsScreen(),
+      scan: (context) => const ScanScreen(),
+      reminderSettings: (context) => const ReminderSettingsScreen(),
+      editProfile: (context) => const EditProfileScreen(),
+      rfcDetails: (context) => const RFCDetailsScreen(),
+      regimenFiscal: (context) => const RegimenFiscalScreen(),
+      domicilioFiscal: (context) => const DomicilioFiscalScreen(),
+      changePassword: (context) => const ChangePasswordScreen(),
+      helpCenter: (context) => const HelpCenterScreen(),
+      privacyPolicy: (context) => const PrivacyPolicyScreen(),
+      termsOfService: (context) => const TermsOfServiceScreen(),
+      about: (context) => const AboutScreen(),
     };
   }
 
