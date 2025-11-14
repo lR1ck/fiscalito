@@ -20,13 +20,72 @@ class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
 
   /// Lista de mensajes del chat (mock data por ahora)
-  final List<_ChatMessage> _messages = [
-    _ChatMessage(
-      text: '¡Hola! Soy Fiscalito, tu asistente fiscal personal. ¿En qué puedo ayudarte hoy?',
-      isUser: false,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
-    ),
-  ];
+  final List<_ChatMessage> _messages = [];
+
+  /// Bandera para mostrar indicador de "escribiendo..."
+  bool _isTyping = false;
+
+  /// Respuestas mock del AI según keywords
+  final Map<String, String> _mockResponses = {
+    'rfc': 'El RFC (Registro Federal de Contribuyentes) es tu identificador único ante el SAT. '
+        'Es como tu "huella digital" fiscal. Tiene 13 caracteres: 4 letras de tu nombre, '
+        '6 dígitos de tu fecha de nacimiento y 3 caracteres de homoclave.\n\n'
+        '¿Necesitas ayuda con tu RFC?',
+    'resico': 'El RESICO (Régimen Simplificado de Confianza) es como la "opción fácil" '
+        'para declarar impuestos que el SAT creó en 2022.\n\n'
+        'Imagínalo así: antes tenías que hacer cálculos complicados cada mes. Con RESICO, '
+        'el SAT te cobra una tasa fija (1% a 2.5%) sobre tus ingresos.\n\n'
+        '¿Es para ti? Si ganas menos de \$3.5 millones al año, probablemente sí.',
+    'cfdi': 'El CFDI (Comprobante Fiscal Digital por Internet) es básicamente una factura electrónica.\n\n'
+        'Es un archivo XML que contiene toda la información de una compra/venta: '
+        'quién vendió, quién compró, cuánto, qué se vendió, etc.\n\n'
+        'Todos los negocios en México deben emitir CFDIs. ¿Tienes dudas sobre cómo usarlos?',
+    'declaración': 'La declaración mensual es como un "reporte de calificaciones" que le mandas al SAT.\n\n'
+        'Le dices: "Este mes gané \$X, gasté \$Y, entonces te debo \$Z de impuestos."\n\n'
+        'Fechas importantes:\n'
+        '• Personas físicas: Día 17 de cada mes\n'
+        '• El 6to dígito de tu RFC determina tu fecha exacta\n\n'
+        '¿Quieres que te recuerde cuándo declarar?',
+    'sat': 'El SAT (Servicio de Administración Tributaria) es como el "IRS mexicano". '
+        'Es la institución que recauda impuestos en México.\n\n'
+        'Sé que a veces parece complicado, pero estoy aquí para ayudarte a entender '
+        'todo en lenguaje simple. ¿Qué proceso del SAT te genera dudas?',
+    'impuestos': 'En México, los impuestos principales son:\n\n'
+        '• ISR (Impuesto Sobre la Renta): Un porcentaje de lo que ganas\n'
+        '• IVA (Impuesto al Valor Agregado): 16% que se agrega a productos/servicios\n\n'
+        'Piensa en ellos como la "mensualidad" que pagamos para tener servicios públicos.\n\n'
+        '¿Quieres saber cuánto debes pagar?',
+    'factura': 'Para facturar necesitas:\n\n'
+        '1. Estar dado de alta en el SAT (tener RFC)\n'
+        '2. Tener tu e.firma (antes FIEL)\n'
+        '3. Usar un sistema de facturación autorizado\n\n'
+        'Las facturas se entregan en formato XML + PDF.\n\n'
+        '¿Necesitas ayuda para empezar a facturar?',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    // Agregar mensaje de bienvenida con delay
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _messages.add(
+            _ChatMessage(
+              text: '¡Hola! Soy Fiscalito, tu asistente fiscal personal. 👋\n\n'
+                  'Estoy aquí para ayudarte con:\n'
+                  '• Explicar términos del SAT\n'
+                  '• Resolver dudas sobre impuestos\n'
+                  '• Guiarte en trámites fiscales\n\n'
+                  '¿En qué puedo ayudarte hoy?',
+              isUser: false,
+              timestamp: DateTime.now(),
+            ),
+          );
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -53,25 +112,57 @@ class _ChatScreenState extends State<ChatScreen> {
       // Limpiar input
       _messageController.clear();
 
-      // TODO: Aquí se llamaría a OpenAI API
-      // Por ahora, simulamos una respuesta automática
-      Future.delayed(const Duration(seconds: 1), () {
-        if (mounted) {
-          setState(() {
-            _messages.add(
-              _ChatMessage(
-                text:
-                    'Gracias por tu pregunta. Esta es una respuesta de ejemplo. '
-                    'Cuando integremos OpenAI, recibirás respuestas reales sobre '
-                    'temas fiscales del SAT.',
-                isUser: false,
-                timestamp: DateTime.now(),
-              ),
-            );
-          });
-        }
+      // Mostrar indicador de "escribiendo..."
+      _isTyping = true;
+    });
+
+    // TODO: Aquí se llamaría a OpenAI API
+    // Por ahora, simulamos una respuesta inteligente basada en keywords
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+
+      // Buscar keyword en el mensaje
+      String response = _getSmartResponse(text.toLowerCase());
+
+      setState(() {
+        _isTyping = false;
+        _messages.add(
+          _ChatMessage(
+            text: response,
+            isUser: false,
+            timestamp: DateTime.now(),
+          ),
+        );
       });
     });
+  }
+
+  /// Genera una respuesta inteligente basada en keywords
+  String _getSmartResponse(String userMessage) {
+    // Buscar keywords en el mensaje
+    for (var entry in _mockResponses.entries) {
+      if (userMessage.contains(entry.key)) {
+        return entry.value;
+      }
+    }
+
+    // Respuestas genéricas si no hay match
+    final genericResponses = [
+      'Entiendo tu consulta. Aunque esta es una respuesta simulada, '
+          'cuando integremos OpenAI recibirás información detallada sobre temas fiscales.\n\n'
+          'Mientras tanto, prueba preguntarme sobre:\n'
+          '• RFC\n• RESICO\n• CFDI\n• Declaraciones\n• Impuestos',
+      'Esa es una buena pregunta. En la versión completa de Fiscalito, '
+          'podré darte una respuesta detallada y personalizada.\n\n'
+          '¿Te gustaría saber sobre algún término fiscal específico como RFC, CFDI o RESICO?',
+      'Gracias por preguntar. Estoy aquí para ayudarte con dudas fiscales.\n\n'
+          'Algunas palabras clave que reconozco:\n'
+          '• SAT\n• Factura\n• Declaración\n• Impuestos\n\n'
+          '¿Sobre cuál quieres saber más?',
+    ];
+
+    // Rotar entre respuestas genéricas
+    return genericResponses[_messages.length % genericResponses.length];
   }
 
   @override
@@ -156,9 +247,15 @@ class _ChatScreenState extends State<ChatScreen> {
                 : ListView.builder(
                     padding: const EdgeInsets.all(16),
                     reverse: true,
-                    itemCount: _messages.length,
+                    itemCount: _messages.length + (_isTyping ? 1 : 0),
                     itemBuilder: (context, index) {
-                      final message = _messages[_messages.length - 1 - index];
+                      // Mostrar indicador de "escribiendo..." al principio (reverse=true)
+                      if (index == 0 && _isTyping) {
+                        return _buildTypingIndicator();
+                      }
+
+                      final messageIndex = _isTyping ? index - 1 : index;
+                      final message = _messages[_messages.length - 1 - messageIndex];
                       return _buildMessageBubble(message);
                     },
                   ),
@@ -255,6 +352,76 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  /// Construye el indicador de "escribiendo..."
+  Widget _buildTypingIndicator() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Avatar de la AI
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryMagenta.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.smart_toy,
+              color: AppTheme.primaryMagenta,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // Indicador animado
+          Container(
+            decoration: AppTheme.chatAiBubbleDecoration(),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildDot(0),
+                const SizedBox(width: 4),
+                _buildDot(1),
+                const SizedBox(width: 4),
+                _buildDot(2),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Construye un punto animado del indicador
+  Widget _buildDot(int index) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
+      builder: (context, value, child) {
+        final offset = (index * 0.2) % 1.0;
+        final opacity = ((value + offset) % 1.0).clamp(0.3, 1.0);
+        return Opacity(
+          opacity: opacity,
+          child: Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: AppTheme.textSecondary,
+              shape: BoxShape.circle,
+            ),
+          ),
+        );
+      },
     );
   }
 

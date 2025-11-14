@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/theme.dart';
+import '../../config/routes.dart';
 
 /// Pantalla de lista de facturas (CFDI)
 ///
@@ -15,14 +16,15 @@ class CfdiListScreen extends StatefulWidget {
 }
 
 class _CfdiListScreenState extends State<CfdiListScreen> {
-  /// Lista de facturas mock
+  /// Lista de facturas mock (10 ejemplos variados)
   final List<_CfdiItem> _facturas = [
     _CfdiItem(
       folio: 'A1234567',
-      emisor: 'Tienda Electrónica SA',
+      emisor: 'Tienda Electrónica SA de CV',
       monto: 1250.00,
       fecha: DateTime.now().subtract(const Duration(days: 2)),
       tipo: 'Ingreso',
+      uuid: '12345678-1234-1234-1234-123456789012',
     ),
     _CfdiItem(
       folio: 'B9876543',
@@ -30,13 +32,15 @@ class _CfdiListScreenState extends State<CfdiListScreen> {
       monto: 3500.00,
       fecha: DateTime.now().subtract(const Duration(days: 5)),
       tipo: 'Ingreso',
+      uuid: '23456789-2345-2345-2345-234567890123',
     ),
     _CfdiItem(
       folio: 'C5555555',
-      emisor: 'Papelería y Suministros',
+      emisor: 'Papelería y Suministros del Centro',
       monto: 450.50,
       fecha: DateTime.now().subtract(const Duration(days: 7)),
       tipo: 'Egreso',
+      uuid: '34567890-3456-3456-3456-345678901234',
     ),
     _CfdiItem(
       folio: 'D1111111',
@@ -44,6 +48,55 @@ class _CfdiListScreenState extends State<CfdiListScreen> {
       monto: 280.00,
       fecha: DateTime.now().subtract(const Duration(days: 10)),
       tipo: 'Egreso',
+      uuid: '45678901-4567-4567-4567-456789012345',
+    ),
+    _CfdiItem(
+      folio: 'E7777777',
+      emisor: 'Desarrollo de Software Innovador SA',
+      monto: 8500.00,
+      fecha: DateTime.now().subtract(const Duration(days: 12)),
+      tipo: 'Ingreso',
+      uuid: '56789012-5678-5678-5678-567890123456',
+    ),
+    _CfdiItem(
+      folio: 'F3333333',
+      emisor: 'Gasolinera La Estrella',
+      monto: 750.00,
+      fecha: DateTime.now().subtract(const Duration(days: 15)),
+      tipo: 'Egreso',
+      uuid: '67890123-6789-6789-6789-678901234567',
+    ),
+    _CfdiItem(
+      folio: 'G9999999',
+      emisor: 'Consultoría Empresarial Premium',
+      monto: 12000.00,
+      fecha: DateTime.now().subtract(const Duration(days: 18)),
+      tipo: 'Ingreso',
+      uuid: '78901234-7890-7890-7890-789012345678',
+    ),
+    _CfdiItem(
+      folio: 'H4444444',
+      emisor: 'Supermercado La Economía',
+      monto: 1850.75,
+      fecha: DateTime.now().subtract(const Duration(days: 20)),
+      tipo: 'Egreso',
+      uuid: '89012345-8901-8901-8901-890123456789',
+    ),
+    _CfdiItem(
+      folio: 'I2222222',
+      emisor: 'Diseño Gráfico Creativo SC',
+      monto: 4200.00,
+      fecha: DateTime.now().subtract(const Duration(days: 22)),
+      tipo: 'Ingreso',
+      uuid: '90123456-9012-9012-9012-901234567890',
+    ),
+    _CfdiItem(
+      folio: 'J8888888',
+      emisor: 'Ferretería y Materiales del Norte',
+      monto: 3250.50,
+      fecha: DateTime.now().subtract(const Duration(days: 25)),
+      tipo: 'Egreso',
+      uuid: '01234567-0123-0123-0123-012345678901',
     ),
   ];
 
@@ -107,12 +160,8 @@ class _CfdiListScreenState extends State<CfdiListScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // TODO: Navegar a subir factura
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Subir factura próximamente'),
-            ),
-          );
+          // Navegar a subir factura
+          AppRoutes.pushNamed(context, AppRoutes.cfdiUpload);
         },
         icon: const Icon(Icons.add),
         label: const Text('Subir CFDI'),
@@ -347,12 +396,8 @@ class _CfdiListScreenState extends State<CfdiListScreen> {
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: () {
-                // TODO: Navegar a subir factura
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Subir factura próximamente'),
-                  ),
-                );
+                // Navegar a subir factura
+                AppRoutes.pushNamed(context, AppRoutes.cfdiUpload);
               },
               icon: const Icon(Icons.add),
               label: const Text('Subir CFDI'),
@@ -383,13 +428,14 @@ class _CfdiListScreenState extends State<CfdiListScreen> {
   }
 }
 
-/// Modelo simple para facturas
+/// Modelo simple para facturas CFDI
 class _CfdiItem {
   final String folio;
   final String emisor;
   final double monto;
   final DateTime fecha;
   final String tipo; // 'Ingreso' o 'Egreso'
+  final String uuid; // UUID del CFDI (Folio Fiscal)
 
   _CfdiItem({
     required this.folio,
@@ -397,5 +443,6 @@ class _CfdiItem {
     required this.monto,
     required this.fecha,
     required this.tipo,
+    required this.uuid,
   });
 }

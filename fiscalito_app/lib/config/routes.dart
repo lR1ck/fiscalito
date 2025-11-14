@@ -3,6 +3,8 @@ import '../screens/splash_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/main_screen.dart';
+import '../screens/obligations/obligations_screen.dart';
+import '../screens/cfdi/cfdi_upload_screen.dart';
 
 /// Configuración de rutas de navegación de la aplicación
 ///
@@ -54,9 +56,8 @@ class AppRoutes {
       login: (context) => const LoginScreen(),
       register: (context) => const RegisterScreen(),
       dashboard: (context) => const MainScreen(),
-      // TODO: Agregar rutas adicionales cuando se implementen las pantallas
-      // obligations: (context) => const ObligationsScreen(),
-      // cfdiUpload: (context) => const CfdiUploadScreen(),
+      obligations: (context) => const ObligationsScreen(),
+      cfdiUpload: (context) => const CfdiUploadScreen(),
     };
   }
 

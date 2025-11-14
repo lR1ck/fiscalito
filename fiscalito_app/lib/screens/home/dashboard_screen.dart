@@ -294,18 +294,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   /// Card de próxima obligación fiscal
   Widget _buildNextObligationCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.warningOrange.withOpacity(0.1),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          AppRoutes.pushNamed(context, AppRoutes.obligations);
+        },
         borderRadius: BorderRadius.circular(AppTheme.kBorderRadiusCard),
-        border: Border.all(
-          color: AppTheme.warningOrange,
-          width: 1,
-        ),
-      ),
-      padding: const EdgeInsets.all(AppTheme.kPaddingCard),
-      child: Row(
-        children: [
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.warningOrange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(AppTheme.kBorderRadiusCard),
+            border: Border.all(
+              color: AppTheme.warningOrange,
+              width: 1,
+            ),
+          ),
+          padding: const EdgeInsets.all(AppTheme.kPaddingCard),
+          child: Row(
+            children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -351,6 +358,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    ),
+      ),
     );
   }
 
@@ -373,9 +382,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         label: 'Subir factura',
         color: AppTheme.infoBlue,
         onTap: () {
-          // Navegar a Facturas (índice 2) y mostrar opción de subir
-          navigationProvider.goToFacturas();
-          // TODO: En el futuro, abrir directamente el diálogo de subir
+          // Navegar directamente a subir factura
+          AppRoutes.pushNamed(context, AppRoutes.cfdiUpload);
         },
       ),
       _QuickAction(
@@ -394,10 +402,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         label: 'Obligaciones',
         color: AppTheme.warningOrange,
         onTap: () {
-          // TODO: Navegar a obligaciones (pantalla próxima)
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Obligaciones próximamente')),
-          );
+          // Navegar a obligaciones
+          AppRoutes.pushNamed(context, AppRoutes.obligations);
         },
       ),
     ];
