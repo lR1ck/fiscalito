@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../config/theme.dart';
+import '../../services/openai_service.dart';
 
 /// Pantalla de chat con el asistente AI Fiscalito
 ///
 /// Feature principal de la app. Permite conversar con la AI
 /// para resolver dudas fiscales, explicar términos del SAT, etc.
 ///
-/// Por ahora muestra UI básica sin integración con OpenAI.
-/// La integración real se agregará en la siguiente fase.
+/// Integrado con OpenAI GPT-4o-mini para respuestas reales.
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
@@ -19,53 +19,35 @@ class _ChatScreenState extends State<ChatScreen> {
   /// Controller del input de texto
   final _messageController = TextEditingController();
 
-  /// Lista de mensajes del chat (mock data por ahora)
+  /// Lista de mensajes del chat
   final List<_ChatMessage> _messages = [];
 
   /// Bandera para mostrar indicador de "escribiendo..."
   bool _isTyping = false;
 
-  /// Respuestas mock del AI según keywords
-  final Map<String, String> _mockResponses = {
-    'rfc': 'El RFC (Registro Federal de Contribuyentes) es tu identificador único ante el SAT. '
-        'Es como tu "huella digital" fiscal. Tiene 13 caracteres: 4 letras de tu nombre, '
-        '6 dígitos de tu fecha de nacimiento y 3 caracteres de homoclave.\n\n'
-        '¿Necesitas ayuda con tu RFC?',
-    'resico': 'El RESICO (Régimen Simplificado de Confianza) es como la "opción fácil" '
-        'para declarar impuestos que el SAT creó en 2022.\n\n'
-        'Imagínalo así: antes tenías que hacer cálculos complicados cada mes. Con RESICO, '
-        'el SAT te cobra una tasa fija (1% a 2.5%) sobre tus ingresos.\n\n'
-        '¿Es para ti? Si ganas menos de \$3.5 millones al año, probablemente sí.',
-    'cfdi': 'El CFDI (Comprobante Fiscal Digital por Internet) es básicamente una factura electrónica.\n\n'
-        'Es un archivo XML que contiene toda la información de una compra/venta: '
-        'quién vendió, quién compró, cuánto, qué se vendió, etc.\n\n'
-        'Todos los negocios en México deben emitir CFDIs. ¿Tienes dudas sobre cómo usarlos?',
-    'declaración': 'La declaración mensual es como un "reporte de calificaciones" que le mandas al SAT.\n\n'
-        'Le dices: "Este mes gané \$X, gasté \$Y, entonces te debo \$Z de impuestos."\n\n'
-        'Fechas importantes:\n'
-        '• Personas físicas: Día 17 de cada mes\n'
-        '• El 6to dígito de tu RFC determina tu fecha exacta\n\n'
-        '¿Quieres que te recuerde cuándo declarar?',
-    'sat': 'El SAT (Servicio de Administración Tributaria) es como el "IRS mexicano". '
-        'Es la institución que recauda impuestos en México.\n\n'
-        'Sé que a veces parece complicado, pero estoy aquí para ayudarte a entender '
-        'todo en lenguaje simple. ¿Qué proceso del SAT te genera dudas?',
-    'impuestos': 'En México, los impuestos principales son:\n\n'
-        '• ISR (Impuesto Sobre la Renta): Un porcentaje de lo que ganas\n'
-        '• IVA (Impuesto al Valor Agregado): 16% que se agrega a productos/servicios\n\n'
-        'Piensa en ellos como la "mensualidad" que pagamos para tener servicios públicos.\n\n'
-        '¿Quieres saber cuánto debes pagar?',
-    'factura': 'Para facturar necesitas:\n\n'
-        '1. Estar dado de alta en el SAT (tener RFC)\n'
-        '2. Tener tu e.firma (antes FIEL)\n'
-        '3. Usar un sistema de facturación autorizado\n\n'
-        'Las facturas se entregan en formato XML + PDF.\n\n'
-        '¿Necesitas ayuda para empezar a facturar?',
-  };
+  /// Servicio de OpenAI
+  late final OpenAIService _openAIService;
+
+  /// Bandera para deshabilitar input mientras se procesa
+  bool _isProcessing = false;
 
   @override
   void initState() {
     super.initState();
+
+    // Inicializar servicio de OpenAI
+    try {
+      _openAIService = OpenAIService();
+    } catch (e) {
+      // Si falla la inicialización (ej: API key no encontrada), mostrar error
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showErrorSnackBar(
+              'Error de configuración. Verifica tu API key en .env');
+        }
+      });
+    }
+
     // Agregar mensaje de bienvenida con delay
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
@@ -94,10 +76,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// Envía un mensaje al chat
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
 
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isProcessing) return;
 
     setState(() {
       // Agregar mensaje del usuario
@@ -112,20 +94,28 @@ class _ChatScreenState extends State<ChatScreen> {
       // Limpiar input
       _messageController.clear();
 
-      // Mostrar indicador de "escribiendo..."
+      // Mostrar indicador de "escribiendo..." y deshabilitar input
       _isTyping = true;
+      _isProcessing = true;
     });
 
-    // TODO: Aquí se llamaría a OpenAI API
-    // Por ahora, simulamos una respuesta inteligente basada en keywords
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (!mounted) return;
+    try {
+      // Construir historial de conversación para OpenAI
+      final conversationHistory = _messages
+          .map((msg) => {
+                'role': msg.isUser ? 'user' : 'assistant',
+                'content': msg.text,
+              })
+          .toList();
 
-      // Buscar keyword en el mensaje
-      String response = _getSmartResponse(text.toLowerCase());
+      // Llamar a OpenAI API
+      final response = await _openAIService.sendMessage(conversationHistory);
+
+      if (!mounted) return;
 
       setState(() {
         _isTyping = false;
+        _isProcessing = false;
         _messages.add(
           _ChatMessage(
             text: response,
@@ -134,35 +124,47 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         );
       });
-    });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isTyping = false;
+        _isProcessing = false;
+      });
+
+      // Mostrar error amigable al usuario
+      String errorMessage = 'Error al conectar con el asistente';
+
+      if (e.toString().contains('Sin conexión a internet')) {
+        errorMessage = 'Sin conexión a internet. Verifica tu red.';
+      } else if (e.toString().contains('API key inválida')) {
+        errorMessage = 'Error de configuración. Verifica tu API key.';
+      } else if (e.toString().contains('Demasiadas solicitudes')) {
+        errorMessage = 'Demasiadas solicitudes. Espera un momento.';
+      } else if (e.toString().contains('La conexión tardó')) {
+        errorMessage = 'La conexión tardó demasiado. Intenta de nuevo.';
+      }
+
+      _showErrorSnackBar(errorMessage);
+    }
   }
 
-  /// Genera una respuesta inteligente basada en keywords
-  String _getSmartResponse(String userMessage) {
-    // Buscar keywords en el mensaje
-    for (var entry in _mockResponses.entries) {
-      if (userMessage.contains(entry.key)) {
-        return entry.value;
-      }
-    }
-
-    // Respuestas genéricas si no hay match
-    final genericResponses = [
-      'Entiendo tu consulta. Aunque esta es una respuesta simulada, '
-          'cuando integremos OpenAI recibirás información detallada sobre temas fiscales.\n\n'
-          'Mientras tanto, prueba preguntarme sobre:\n'
-          '• RFC\n• RESICO\n• CFDI\n• Declaraciones\n• Impuestos',
-      'Esa es una buena pregunta. En la versión completa de Fiscalito, '
-          'podré darte una respuesta detallada y personalizada.\n\n'
-          '¿Te gustaría saber sobre algún término fiscal específico como RFC, CFDI o RESICO?',
-      'Gracias por preguntar. Estoy aquí para ayudarte con dudas fiscales.\n\n'
-          'Algunas palabras clave que reconozco:\n'
-          '• SAT\n• Factura\n• Declaración\n• Impuestos\n\n'
-          '¿Sobre cuál quieres saber más?',
-    ];
-
-    // Rotar entre respuestas genéricas
-    return genericResponses[_messages.length % genericResponses.length];
+  /// Muestra un SnackBar con mensaje de error
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: AppTheme.errorRed,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   @override
@@ -446,8 +448,11 @@ class _ChatScreenState extends State<ChatScreen> {
             Expanded(
               child: TextField(
                 controller: _messageController,
+                enabled: !_isProcessing,
                 decoration: InputDecoration(
-                  hintText: 'Pregúntame sobre el SAT...',
+                  hintText: _isProcessing
+                      ? 'Fiscalito está escribiendo...'
+                      : 'Pregúntame sobre el SAT...',
                   filled: true,
                   fillColor: AppTheme.surfaceCard,
                   border: OutlineInputBorder(
@@ -461,7 +466,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 maxLines: null,
                 textCapitalization: TextCapitalization.sentences,
-                onSubmitted: (_) => _sendMessage(),
+                onSubmitted: _isProcessing ? null : (_) => _sendMessage(),
               ),
             ),
 
@@ -470,15 +475,27 @@ class _ChatScreenState extends State<ChatScreen> {
             // Botón de enviar
             Container(
               decoration: BoxDecoration(
-                color: AppTheme.primaryMagenta,
+                color: _isProcessing
+                    ? AppTheme.textDisabled
+                    : AppTheme.primaryMagenta,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: IconButton(
-                icon: const Icon(
-                  Icons.send,
-                  color: AppTheme.textPrimary,
-                ),
-                onPressed: _sendMessage,
+                icon: _isProcessing
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(AppTheme.textPrimary),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.send,
+                        color: AppTheme.textPrimary,
+                      ),
+                onPressed: _isProcessing ? null : _sendMessage,
               ),
             ),
           ],

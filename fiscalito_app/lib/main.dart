@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config/theme.dart';
 import 'config/routes.dart';
 
 /// Punto de entrada principal de la aplicación Fiscalito
-void main() {
+///
+/// Carga el archivo .env antes de iniciar la app para
+/// tener acceso a las API keys (OpenAI, etc.)
+Future<void> main() async {
+  // Asegurar que los bindings de Flutter estén inicializados
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Cargar variables de entorno desde .env
+  await dotenv.load(fileName: ".env");
+
   runApp(const FiscalitoApp());
 }
 
