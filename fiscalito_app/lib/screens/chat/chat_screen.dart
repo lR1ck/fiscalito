@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../config/theme.dart';
 import '../../services/openai_service.dart';
 
@@ -310,16 +311,52 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    message.text,
-                    style: TextStyle(
-                      color: message.isUser
-                          ? AppTheme.textPrimary
-                          : AppTheme.textPrimary,
-                      fontSize: 15,
-                      height: 1.4,
-                    ),
-                  ),
+                  // Usar MarkdownBody para mensajes de IA, Text para usuario
+                  message.isUser
+                      ? Text(
+                          message.text,
+                          style: const TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 15,
+                            height: 1.4,
+                          ),
+                        )
+                      : MarkdownBody(
+                          data: message.text,
+                          selectable: true,
+                          styleSheet: MarkdownStyleSheet(
+                            // Texto normal (párrafos)
+                            p: const TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontSize: 16,
+                              height: 1.5,
+                            ),
+                            // Negritas **texto**
+                            strong: const TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 17,
+                            ),
+                            // Listas con bullets
+                            listBullet: const TextStyle(
+                              color: AppTheme.successGreen,
+                              fontSize: 16,
+                            ),
+                            // Código inline `código`
+                            code: TextStyle(
+                              color: AppTheme.primaryMagenta,
+                              backgroundColor:
+                                  AppTheme.surfaceElevated.withOpacity(0.5),
+                              fontSize: 14,
+                            ),
+                            // Espaciado entre bloques (párrafos, listas, etc.)
+                            blockSpacing: 12.0,
+                            // Indentación de listas
+                            listIndent: 24.0,
+                            // Tamaño de fuente para listas
+                            listBulletPadding: const EdgeInsets.only(right: 8),
+                          ),
+                        ),
                   const SizedBox(height: 4),
                   Text(
                     _formatTime(message.timestamp),

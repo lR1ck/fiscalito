@@ -41,6 +41,9 @@ dependencies:
   flutter_dotenv: ^5.1.0
   http: ^1.2.0
 
+  # Markdown rendering para respuestas del chat
+  flutter_markdown: ^0.7.4+1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -68,6 +71,7 @@ flutter:
     - assets/images/logo_full.png
     - assets/images/logo_icon.png
     - .env
+    - assets/knowledge/sat_knowledge_2025.txt
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
