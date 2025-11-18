@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
 import '../../config/theme.dart';
 import '../../config/routes.dart';
 import '../../providers/navigation_provider.dart';
@@ -429,6 +428,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   /// Card de próxima obligación fiscal
   Widget _buildNextObligationCard() {
+    // Calcular la próxima declaración (día 17 del mes correspondiente)
+    final proximaDeclaracion = _calcularProximaDeclaracion();
+    final diasFaltantes = proximaDeclaracion.difference(DateTime.now()).inDays;
+
+    // Formatear la fecha en español (sin usar locale)
+    final fechaFormateada = _formatearFechaEspanol(proximaDeclaracion);
+
+    // Texto de días faltantes
+    String textoDias;
+    if (diasFaltantes == 0) {
+      textoDias = '¡Hoy!';
+    } else if (diasFaltantes == 1) {
+      textoDias = 'Mañana';
+    } else {
+      textoDias = 'Faltan $diasFaltantes días';
+    }
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -471,14 +487,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '17 de diciembre, 2025',
+                  fechaFormateada,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppTheme.textSecondary,
                       ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Faltan 5 días',
+                  textoDias,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppTheme.warningOrange,
                         fontWeight: FontWeight.w600,
@@ -496,6 +512,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ),
       ),
     );
+  }
+
+  /// Calcula la próxima declaración mensual (día 17)
+  ///
+  /// Lógica:
+  /// - Si hoy es antes del día 17: la próxima es el 17 de este mes
+  /// - Si ya pasó el día 17: la próxima es el 17 del mes siguiente
+  DateTime _calcularProximaDeclaracion() {
+    final now = DateTime.now();
+    const diaLimite = 17;
+
+    // Si ya pasó el día 17 de este mes, la próxima es el 17 del siguiente mes
+    if (now.day >= diaLimite) {
+      // Mes siguiente
+      final proximoMes = now.month == 12 ? 1 : now.month + 1;
+      final proximoAnio = now.month == 12 ? now.year + 1 : now.year;
+      return DateTime(proximoAnio, proximoMes, diaLimite);
+    } else {
+      // Este mes, día 17
+      return DateTime(now.year, now.month, diaLimite);
+    }
+  }
+
+  /// Formatea una fecha en español sin necesidad de locale
+  ///
+  /// Retorna formato: "17 de diciembre, 2025"
+  String _formatearFechaEspanol(DateTime fecha) {
+    const meses = [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    ];
+
+    final mes = meses[fecha.month - 1];
+    return '${fecha.day} de $mes, ${fecha.year}';
   }
 
   /// Grid de accesos rápidos
@@ -591,12 +641,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   /// Cards de estadísticas
   Widget _buildStatisticsCards() {
-    // Formatear el balance total con formato de moneda mexicana
-    final formatter = NumberFormat.currency(
-      locale: 'es_MX',
-      symbol: '\$',
-      decimalDigits: 2,
-    );
+    // Formatear el balance total con formato de moneda (sin locale)
+    final balanceFormateado = _formatearMoneda(_balanceTotal);
 
     return Row(
       children: [
@@ -614,9 +660,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Expanded(
           child: _buildStatCard(
             title: 'Balance',
-            value: _isLoadingEstadisticas
-                ? '...'
-                : formatter.format(_balanceTotal),
+            value: _isLoadingEstadisticas ? '...' : balanceFormateado,
             subtitle: 'MXN',
             icon: Icons.attach_money,
             color: _balanceTotal >= 0
@@ -627,6 +671,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ],
     );
+  }
+
+  /// Formatea un monto en pesos mexicanos sin necesidad de locale
+  ///
+  /// Retorna formato: "$12,450.00" o "-$1,234.56"
+  String _formatearMoneda(double monto) {
+    final esNegativo = monto < 0;
+    final montoAbsoluto = monto.abs();
+
+    // Separar parte entera y decimal
+    final parteEntera = montoAbsoluto.floor();
+    final parteDecimal = ((montoAbsoluto - parteEntera) * 100).round();
+
+    // Formatear parte entera con comas
+    String parteEnteraStr = parteEntera.toString();
+    final buffer = StringBuffer();
+
+    for (int i = 0; i < parteEnteraStr.length; i++) {
+      if (i > 0 && (parteEnteraStr.length - i) % 3 == 0) {
+        buffer.write(',');
+      }
+      buffer.write(parteEnteraStr[i]);
+    }
+
+    // Construir string final
+    final resultado = '\$${buffer.toString()}.${parteDecimal.toString().padLeft(2, '0')}';
+
+    return esNegativo ? '-$resultado' : resultado;
   }
 
   /// Card individual de estadística
