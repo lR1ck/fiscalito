@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../config/routes.dart';
+import '../../providers/auth_provider.dart' as AppAuth;
 
 /// Pantalla de inicio de sesión
 ///
@@ -74,8 +76,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   /// Maneja el intento de login
   ///
-  /// En producción, aquí se llamaría a Firebase Auth.
-  /// Por ahora, solo simula un delay y navega al Dashboard.
+  /// Autentica al usuario usando Firebase Auth.
+  /// Si tiene éxito, navega al Dashboard.
   Future<void> _handleLogin() async {
     // Validar formulario
     if (!_formKey.currentState!.validate()) {
@@ -85,18 +87,18 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Implementar autenticación real con Firebase
-      // await FirebaseAuth.instance.signInWithEmailAndPassword(
-      //   email: _emailController.text.trim(),
-      //   password: _passwordController.text,
-      // );
+      // Obtener el provider de autenticación
+      final authProvider = Provider.of<AppAuth.AuthProvider>(context, listen: false);
 
-      // Simular delay de red
-      await Future.delayed(const Duration(seconds: 1));
+      // Intentar login con Firebase
+      await authProvider.signIn(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
 
       if (!mounted) return;
 
-      // Navegar al dashboard eliminando todas las rutas anteriores
+      // Login exitoso: navegar al dashboard eliminando todas las rutas anteriores
       AppRoutes.pushNamedAndRemoveUntil(context, AppRoutes.dashboard);
     } catch (e) {
       // Manejo de errores
@@ -104,8 +106,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al iniciar sesión: $e'),
+          content: Text('$e'),
           backgroundColor: AppTheme.errorRed,
+          duration: const Duration(seconds: 4),
         ),
       );
     } finally {

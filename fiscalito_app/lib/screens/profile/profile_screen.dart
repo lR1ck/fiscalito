@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../config/routes.dart';
+import '../../providers/auth_provider.dart' as AppAuth;
+import '../../models/user_model.dart';
 
 /// Pantalla de perfil del usuario
 ///
-/// Muestra información del usuario, configuración de la cuenta
-/// y opciones de la aplicación.
+/// Muestra información del usuario desde Firebase Auth y Firestore,
+/// configuración de la cuenta y opciones de la aplicación.
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -14,14 +17,72 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  /// Mock data del usuario
-  final String _userName = 'Juan Pérez García';
-  final String _userEmail = 'juan.perez@example.com';
-  final String _userRFC = 'XAXX010101000';
+  /// Datos del usuario actual (cargados desde Firebase)
+  UserModel? _userData;
+
+  /// Estado de loading
+  bool _isLoading = true;
+
+  /// Mensaje de error
+  String? _errorMessage;
 
   /// Configuraciones
   bool _notificationsEnabled = true;
   bool _biometricsEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  /// Carga los datos del usuario desde Firebase
+  Future<void> _loadUserData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Obtener el provider de autenticación
+      final authProvider = Provider.of<AppAuth.AuthProvider>(context, listen: false);
+
+      // Verificar que hay un usuario autenticado
+      if (!authProvider.isAuthenticated) {
+        throw 'No hay usuario autenticado';
+      }
+
+      // Obtener datos del usuario desde el provider
+      _userData = authProvider.currentUserModel;
+
+      // Si no hay datos, recargar desde Firestore
+      if (_userData == null) {
+        await authProvider.reloadUserData();
+        _userData = authProvider.currentUserModel;
+      }
+
+      // Si aún no hay datos, mostrar error
+      if (_userData == null) {
+        throw 'No se pudieron cargar los datos del usuario';
+      }
+    } catch (e) {
+      _errorMessage = 'Error al cargar datos: $e';
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$_errorMessage'),
+          backgroundColor: AppTheme.errorRed,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,14 +94,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () {
-              // Navegar a editar perfil
-              AppRoutes.pushNamed(context, AppRoutes.editProfile);
-            },
+            onPressed: _isLoading
+                ? null
+                : () {
+                    // Navegar a editar perfil
+                    AppRoutes.pushNamed(context, AppRoutes.editProfile);
+                  },
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryMagenta),
+              ),
+            )
+          : SingleChildScrollView(
         child: Column(
           children: [
             // Header con avatar y datos principales
@@ -55,7 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _buildInfoTile(
                   icon: Icons.badge_outlined,
                   label: 'RFC',
-                  value: _userRFC,
+                  value: _userData?.rfc ?? 'No disponible',
                   onTap: () {
                     AppRoutes.pushNamed(context, AppRoutes.rfcDetails);
                   },
@@ -183,6 +252,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   /// Construye el header del perfil
   Widget _buildProfileHeader() {
+    // Obtener datos reales del usuario
+    final userName = _userData?.name ?? 'Usuario';
+    final userEmail = _userData?.email ?? 'No disponible';
+
+    // Generar iniciales del nombre
+    String initials = 'U';
+    try {
+      final nameParts = userName.split(' ').where((part) => part.isNotEmpty);
+      if (nameParts.isNotEmpty) {
+        initials = nameParts.map((n) => n[0].toUpperCase()).take(2).join();
+      }
+    } catch (e) {
+      initials = userName.isNotEmpty ? userName[0].toUpperCase() : 'U';
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -198,17 +282,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Column(
         children: [
-          // Avatar
+          // Avatar con iniciales reales
           Container(
             width: 100,
             height: 100,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppTheme.primaryMagenta,
               shape: BoxShape.circle,
             ),
             child: Center(
               child: Text(
-                _userName.split(' ').map((n) => n[0]).take(2).join(),
+                initials,
                 style: const TextStyle(
                   color: AppTheme.textPrimary,
                   fontSize: 36,
@@ -220,18 +304,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           const SizedBox(height: 16),
 
-          // Nombre
+          // Nombre real del usuario
           Text(
-            _userName,
+            userName,
             style: Theme.of(context).textTheme.headlineSmall,
             textAlign: TextAlign.center,
           ),
 
           const SizedBox(height: 4),
 
-          // Email
+          // Email real del usuario
           Text(
-            _userEmail,
+            userEmail,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppTheme.textSecondary,
                 ),
@@ -425,11 +509,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              // TODO: Implementar logout real con Firebase
-              // await FirebaseAuth.instance.signOut();
-              AppRoutes.pushNamedAndRemoveUntil(context, AppRoutes.login);
+
+              try {
+                // Cerrar sesión con Firebase
+                final authProvider = Provider.of<AppAuth.AuthProvider>(context, listen: false);
+                await authProvider.signOut();
+
+                if (!mounted) return;
+
+                // Navegar al login eliminando todas las rutas
+                AppRoutes.pushNamedAndRemoveUntil(context, AppRoutes.login);
+              } catch (e) {
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error al cerrar sesión: $e'),
+                    backgroundColor: AppTheme.errorRed,
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.errorRed,

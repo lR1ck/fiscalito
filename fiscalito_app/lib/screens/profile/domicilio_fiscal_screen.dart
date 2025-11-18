@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/theme.dart';
 
 /// Pantalla de domicilio fiscal
+///
+/// Permite editar y guardar el domicilio fiscal del usuario.
+/// Los datos se guardan en Firestore dentro del documento del usuario.
 class DomicilioFiscalScreen extends StatefulWidget {
   const DomicilioFiscalScreen({super.key});
 
@@ -11,19 +16,75 @@ class DomicilioFiscalScreen extends StatefulWidget {
 
 class _DomicilioFiscalScreenState extends State<DomicilioFiscalScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _calleController = TextEditingController(text: 'Calle Falsa');
-  final _numeroController = TextEditingController(text: '123');
-  final _coloniaController = TextEditingController(text: 'Centro');
-  final _cpController = TextEditingController(text: '06000');
-  final _ciudadController = TextEditingController(text: 'Ciudad de México');
-  final _estadoController = TextEditingController(text: 'CDMX');
+  final _calleController = TextEditingController();
+  final _numeroExteriorController = TextEditingController();
+  final _numeroInteriorController = TextEditingController();
+  final _coloniaController = TextEditingController();
+  final _cpController = TextEditingController();
+  final _ciudadController = TextEditingController();
+  final _estadoController = TextEditingController();
 
   bool _hasChanges = false;
+  bool _isLoading = true;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDomicilio();
+  }
+
+  /// Carga el domicilio fiscal desde Firestore
+  Future<void> _loadDomicilio() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw 'No hay usuario autenticado';
+      }
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!doc.exists) {
+        throw 'No se encontraron datos del usuario';
+      }
+
+      final domicilio = doc.data()?['domicilioFiscal'] as Map<String, dynamic>?;
+
+      if (domicilio != null) {
+        _calleController.text = domicilio['calle'] ?? '';
+        _numeroExteriorController.text = domicilio['numeroExterior'] ?? '';
+        _numeroInteriorController.text = domicilio['numeroInterior'] ?? '';
+        _coloniaController.text = domicilio['colonia'] ?? '';
+        _cpController.text = domicilio['codigoPostal'] ?? '';
+        _ciudadController.text = domicilio['ciudad'] ?? '';
+        _estadoController.text = domicilio['estado'] ?? '';
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al cargar domicilio: $e'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
     _calleController.dispose();
-    _numeroController.dispose();
+    _numeroExteriorController.dispose();
+    _numeroInteriorController.dispose();
     _coloniaController.dispose();
     _cpController.dispose();
     _ciudadController.dispose();
@@ -33,6 +94,20 @@ class _DomicilioFiscalScreenState extends State<DomicilioFiscalScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Mostrar loading mientras carga los datos
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Domicilio Fiscal'),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryMagenta),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Domicilio Fiscal'),
@@ -83,9 +158,9 @@ class _DomicilioFiscalScreenState extends State<DomicilioFiscalScreen> {
                 children: [
                   Expanded(
                     child: TextFormField(
-                      controller: _numeroController,
+                      controller: _numeroExteriorController,
                       decoration: const InputDecoration(
-                        labelText: 'Número',
+                        labelText: 'Núm. Exterior',
                         prefixIcon: Icon(Icons.numbers),
                       ),
                       validator: (v) => v?.isEmpty ?? true ? 'Obligatorio' : null,
@@ -93,17 +168,27 @@ class _DomicilioFiscalScreenState extends State<DomicilioFiscalScreen> {
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    flex: 2,
                     child: TextFormField(
-                      controller: _coloniaController,
+                      controller: _numeroInteriorController,
                       decoration: const InputDecoration(
-                        labelText: 'Colonia',
-                        prefixIcon: Icon(Icons.location_city),
+                        labelText: 'Núm. Interior',
+                        prefixIcon: Icon(Icons.numbers),
+                        hintText: 'Opcional',
                       ),
-                      validator: (v) => v?.isEmpty ?? true ? 'Obligatorio' : null,
                     ),
                   ),
                 ],
+              ),
+
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: _coloniaController,
+                decoration: const InputDecoration(
+                  labelText: 'Colonia',
+                  prefixIcon: Icon(Icons.location_city),
+                ),
+                validator: (v) => v?.isEmpty ?? true ? 'Obligatorio' : null,
               ),
 
               const SizedBox(height: 16),
@@ -150,8 +235,19 @@ class _DomicilioFiscalScreenState extends State<DomicilioFiscalScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _hasChanges ? _saveChanges : null,
-                  child: const Text('Actualizar domicilio'),
+                  onPressed: (_hasChanges && !_isSaving) ? _saveChanges : null,
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppTheme.textPrimary,
+                            ),
+                          ),
+                        )
+                      : const Text('Actualizar domicilio'),
                 ),
               ),
             ],
@@ -161,33 +257,84 @@ class _DomicilioFiscalScreenState extends State<DomicilioFiscalScreen> {
     );
   }
 
-  void _saveChanges() {
+  /// Guarda los cambios del domicilio en Firestore
+  Future<void> _saveChanges() async {
+    // Validar formulario
     if (!_formKey.currentState!.validate()) return;
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Recordatorio'),
-        content: const Text(
-          'Recuerda que debes actualizar tu domicilio fiscal también en el portal del SAT '
-          'para que sea oficial.',
+    setState(() => _isSaving = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw 'No hay usuario autenticado';
+      }
+
+      // Crear el mapa con los datos del domicilio
+      final domicilioData = {
+        'calle': _calleController.text.trim(),
+        'numeroExterior': _numeroExteriorController.text.trim(),
+        'numeroInterior': _numeroInteriorController.text.trim(),
+        'colonia': _coloniaController.text.trim(),
+        'codigoPostal': _cpController.text.trim(),
+        'ciudad': _ciudadController.text.trim(),
+        'estado': _estadoController.text.trim(),
+      };
+
+      // Actualizar en Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({
+        'domicilioFiscal': domicilioData,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) return;
+
+      setState(() {
+        _hasChanges = false;
+        _isSaving = false;
+      });
+
+      // Mostrar mensaje de éxito
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Domicilio actualizado correctamente'),
+          backgroundColor: AppTheme.successGreen,
+          duration: Duration(seconds: 2),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Entendido'),
+      );
+
+      // Mostrar recordatorio sobre actualizar en SAT
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Recordatorio importante'),
+          content: const Text(
+            'Recuerda que debes actualizar tu domicilio fiscal también en el portal del SAT '
+            'para que sea oficial. Este cambio solo se guarda en la app.',
           ),
-        ],
-      ),
-    );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
 
-    setState(() => _hasChanges = false);
+      setState(() => _isSaving = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Domicilio guardado (local)'),
-        backgroundColor: AppTheme.successGreen,
-      ),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al guardar: $e'),
+          backgroundColor: AppTheme.errorRed,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 }

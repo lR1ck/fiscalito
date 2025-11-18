@@ -38,6 +38,11 @@ dependencies:
   # State management simple y gratuito
   provider: ^6.1.2
 
+  # Firebase (backend y autenticación)
+  firebase_core: ^3.7.1
+  firebase_auth: ^5.3.3
+  cloud_firestore: ^5.5.0
+
   flutter_dotenv: ^5.1.0
   http: ^1.2.0
 

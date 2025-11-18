@@ -3,16 +3,15 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../config/routes.dart';
 import '../../providers/navigation_provider.dart';
+import '../../providers/auth_provider.dart' as AppAuth;
+import '../../models/user_model.dart';
 
 /// Pantalla principal del dashboard fiscal
 ///
 /// Muestra:
-/// - Resumen del estado fiscal del usuario
+/// - Resumen del estado fiscal del usuario (datos reales de Firestore)
 /// - Próximas obligaciones
 /// - Acceso rápido a features principales
-///
-/// Los datos mostrados son mock por ahora. En producción,
-/// se cargarán desde Firestore y APIs del SAT.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -22,7 +21,13 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   /// Estado de loading al cargar datos
-  bool _isLoading = false;
+  bool _isLoading = true;
+
+  /// Datos del usuario actual
+  UserModel? _userData;
+
+  /// Mensaje de error si falla la carga
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -30,26 +35,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadDashboardData();
   }
 
-  /// Carga los datos del dashboard desde Firestore
+  /// Carga los datos del dashboard desde Firebase
   ///
-  /// En producción, aquí se llamaría a Firestore y APIs del SAT.
+  /// Obtiene los datos del usuario actual desde el AuthProvider.
   Future<void> _loadDashboardData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     try {
-      // TODO: Implementar carga real de datos
-      // final userData = await FirestoreService.getUserData();
-      // final taxStatus = await SATService.getTaxStatus();
+      // Obtener el provider de autenticación
+      final authProvider = Provider.of<AppAuth.AuthProvider>(context, listen: false);
 
-      // Simular delay de red
-      await Future.delayed(const Duration(seconds: 1));
+      // Verificar que hay un usuario autenticado
+      if (!authProvider.isAuthenticated) {
+        throw 'No hay usuario autenticado';
+      }
+
+      // Obtener datos del usuario desde el provider
+      // El AuthProvider ya carga los datos de Firestore automáticamente
+      _userData = authProvider.currentUserModel;
+
+      // Si no hay datos, recargar desde Firestore
+      if (_userData == null) {
+        await authProvider.reloadUserData();
+        _userData = authProvider.currentUserModel;
+      }
+
+      // Si aún no hay datos, mostrar error
+      if (_userData == null) {
+        throw 'No se pudieron cargar los datos del usuario';
+      }
     } catch (e) {
+      _errorMessage = 'Error al cargar datos: $e';
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al cargar datos: $e'),
+          content: Text('$_errorMessage'),
           backgroundColor: AppTheme.errorRed,
+          duration: const Duration(seconds: 4),
         ),
       );
     } finally {
@@ -72,11 +99,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              // TODO: Implementar logout real con Firebase
-              // await FirebaseAuth.instance.signOut();
-              AppRoutes.pushNamedAndRemoveUntil(context, AppRoutes.login);
+
+              try {
+                // Cerrar sesión con Firebase
+                final authProvider = Provider.of<AppAuth.AuthProvider>(context, listen: false);
+                await authProvider.signOut();
+
+                if (!mounted) return;
+
+                // Navegar al login eliminando todas las rutas
+                AppRoutes.pushNamedAndRemoveUntil(context, AppRoutes.login);
+              } catch (e) {
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error al cerrar sesión: $e'),
+                    backgroundColor: AppTheme.errorRed,
+                  ),
+                );
+              }
             },
             child: const Text('Cerrar sesión'),
           ),
@@ -171,14 +215,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   /// Header con saludo personalizado
   Widget _buildWelcomeHeader() {
-    // TODO: Obtener nombre real del usuario desde Firestore
-    const userName = 'Juan';
+    // Obtener primer nombre del usuario
+    final fullName = _userData?.name ?? 'Usuario';
+    final firstName = fullName.split(' ').first;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Hola, $userName',
+          'Hola, $firstName',
           style: Theme.of(context).textTheme.displaySmall,
         ),
         const SizedBox(height: 4),
@@ -276,7 +321,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
               ),
               Text(
-                'XAXX010101000',
+                _userData?.rfc ?? 'N/A',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),

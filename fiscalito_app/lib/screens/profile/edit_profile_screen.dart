@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../config/theme.dart';
+import '../../providers/auth_provider.dart' as AppAuth;
 
 /// Pantalla para editar el perfil del usuario
 ///
-/// Permite modificar: nombre, email, teléfono y foto de perfil
+/// Permite modificar: nombre, email y RFC del usuario.
+/// Los cambios se guardan en Firebase Auth y Firestore.
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -13,17 +17,56 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController(text: 'Juan Pérez García');
-  final _emailController = TextEditingController(text: 'juan.perez@example.com');
-  final _phoneController = TextEditingController(text: '5512345678');
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _rfcController = TextEditingController();
 
   bool _hasChanges = false;
+  bool _isLoading = true;
+  bool _isSaving = false;
+
+  String? _originalEmail;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  /// Carga los datos actuales del usuario
+  Future<void> _loadUserData() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final authProvider = Provider.of<AppAuth.AuthProvider>(context, listen: false);
+      final userData = authProvider.currentUserModel;
+
+      if (userData != null) {
+        _nameController.text = userData.name;
+        _emailController.text = userData.email;
+        _rfcController.text = userData.rfc;
+        _originalEmail = userData.email;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al cargar datos: $e'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
+    _rfcController.dispose();
     super.dispose();
   }
 
@@ -33,9 +76,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       appBar: AppBar(
         title: const Text('Editar Perfil'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppTheme.kPaddingScreen),
-        child: Form(
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryMagenta),
+              ),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(AppTheme.kPaddingScreen),
+              child: Form(
           key: _formKey,
           onChanged: () {
             setState(() {
@@ -149,25 +198,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
               const SizedBox(height: 20),
 
-              // Teléfono
+              // RFC
               TextFormField(
-                controller: _phoneController,
+                controller: _rfcController,
                 decoration: const InputDecoration(
-                  labelText: 'Teléfono',
-                  prefixIcon: Icon(Icons.phone),
-                  hintText: '10 dígitos',
+                  labelText: 'RFC',
+                  prefixIcon: Icon(Icons.badge),
+                  hintText: 'XAXX010101000',
+                  helperText: '13 caracteres alfanuméricos',
                 ),
-                keyboardType: TextInputType.phone,
-                maxLength: 10,
+                textCapitalization: TextCapitalization.characters,
+                maxLength: 13,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'El teléfono es obligatorio';
+                    return 'El RFC es obligatorio';
                   }
-                  if (value.trim().length != 10) {
-                    return 'El teléfono debe tener 10 dígitos';
+                  final rfc = value.trim().toUpperCase();
+                  if (rfc.length != 13) {
+                    return 'El RFC debe tener 13 caracteres';
                   }
-                  if (!RegExp(r'^[0-9]+$').hasMatch(value.trim())) {
-                    return 'Solo números';
+                  // Validar formato: 4 letras + 6 números + 3 alfanuméricos
+                  final rfcRegex = RegExp(r'^[A-Z]{4}[0-9]{6}[A-Z0-9]{3}$');
+                  if (!rfcRegex.hasMatch(rfc)) {
+                    return 'Formato de RFC inválido';
                   }
                   return null;
                 },
@@ -179,11 +232,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _hasChanges ? _saveChanges : null,
+                  onPressed: (_hasChanges && !_isSaving) ? _saveChanges : null,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.all(16),
                   ),
-                  child: const Text('Guardar cambios'),
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Guardar cambios'),
                 ),
               ),
             ],
@@ -246,24 +308,81 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  /// Guarda los cambios
-  void _saveChanges() {
+  /// Guarda los cambios en Firebase Auth y Firestore
+  Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    // TODO: Guardar en Firestore
-    setState(() {
-      _hasChanges = false;
-    });
+    setState(() => _isSaving = true);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Perfil actualizado correctamente'),
-        backgroundColor: AppTheme.successGreen,
-      ),
-    );
+    try {
+      final authProvider = Provider.of<AppAuth.AuthProvider>(context, listen: false);
+      final newEmail = _emailController.text.trim();
+      final emailChanged = newEmail != _originalEmail;
 
-    Navigator.pop(context);
+      // 1. Si el email cambió, actualizar en Firebase Auth
+      if (emailChanged) {
+        try {
+          final currentUser = FirebaseAuth.instance.currentUser;
+          if (currentUser != null) {
+            await currentUser.updateEmail(newEmail);
+          }
+        } on FirebaseAuthException catch (e) {
+          // Si requiere re-autenticación reciente
+          if (e.code == 'requires-recent-login') {
+            throw 'Por seguridad, cierra sesión y vuelve a entrar para cambiar tu email';
+          }
+          // Si el email ya está en uso
+          if (e.code == 'email-already-in-use') {
+            throw 'Este email ya está registrado por otra cuenta';
+          }
+          // Error genérico de email
+          throw 'Error al actualizar email: ${e.message}';
+        }
+      }
+
+      // 2. Actualizar datos en Firestore
+      await authProvider.updateProfile({
+        'name': _nameController.text.trim(),
+        'email': newEmail,
+        'rfc': _rfcController.text.trim().toUpperCase(),
+      });
+
+      if (!mounted) return;
+
+      // Mostrar mensaje de éxito
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Perfil actualizado correctamente'),
+          backgroundColor: AppTheme.successGreen,
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Esperar un momento antes de cerrar
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+
+      // Volver a la pantalla anterior
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al guardar: $e'),
+          backgroundColor: AppTheme.errorRed,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _hasChanges = false;
+        });
+      }
+    }
   }
 }

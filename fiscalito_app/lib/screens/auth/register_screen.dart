@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../config/routes.dart';
+import '../../providers/auth_provider.dart' as AppAuth;
 
 /// Pantalla de registro de nuevo usuario
 ///
@@ -142,8 +145,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   /// Maneja el registro del usuario
   ///
-  /// En producción, aquí se llamaría a Firebase Auth y Firestore.
-  /// Por ahora, simula un delay y navega al Dashboard.
+  /// Crea el usuario en Firebase Auth y guarda sus datos en Firestore.
+  /// Si tiene éxito, navega al Dashboard.
   Future<void> _handleRegister() async {
     // Validar formulario
     if (!_formKey.currentState!.validate()) {
@@ -164,53 +167,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Implementar registro real con Firebase
-      // 1. Crear usuario en Firebase Auth
-      // await FirebaseAuth.instance.createUserWithEmailAndPassword(
-      //   email: _emailController.text.trim(),
-      //   password: _passwordController.text,
-      // );
-      //
-      // 2. Guardar datos adicionales en Firestore
-      // await FirebaseFirestore.instance.collection('users').doc(uid).set({
-      //   'name': _nameController.text.trim(),
-      //   'email': _emailController.text.trim(),
-      //   'rfc': _rfcController.text.trim().toUpperCase(),
-      //   'createdAt': FieldValue.serverTimestamp(),
-      // });
+      // Obtener el provider de autenticación
+      final authProvider = Provider.of<AppAuth.AuthProvider>(context, listen: false);
 
-      // Simular delay de red
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (!mounted) return;
-
-      // Mostrar mensaje de éxito
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('¡Cuenta creada exitosamente!'),
-          backgroundColor: AppTheme.successGreen,
-        ),
+      // Registrar usuario en Firebase Auth y Firestore
+      await authProvider.signUp(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        name: _nameController.text.trim(),
+        rfc: _rfcController.text.trim().toUpperCase(),
       );
 
-      // Navegar al dashboard eliminando todas las rutas anteriores
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (!mounted) return;
+      // Detener loading ANTES de mostrar SnackBar y navegar
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
 
-      AppRoutes.pushNamedAndRemoveUntil(context, AppRoutes.dashboard);
+      // Usar addPostFrameCallback para ejecutar después del rebuild
+      // causado por el AuthProvider cuando detecta el nuevo usuario
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        // Mostrar mensaje de éxito
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('¡Cuenta creada exitosamente!'),
+            backgroundColor: AppTheme.successGreen,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        // Navegar al dashboard eliminando todas las rutas anteriores
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (!mounted) return;
+          AppRoutes.pushNamedAndRemoveUntil(context, AppRoutes.dashboard);
+        });
+      });
     } catch (e) {
       // Manejo de errores
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al crear cuenta: $e'),
+          content: Text('$e'),
           backgroundColor: AppTheme.errorRed,
+          duration: const Duration(seconds: 4),
         ),
       );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
     }
   }
 
