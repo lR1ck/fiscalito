@@ -46,6 +46,9 @@ dependencies:
   flutter_dotenv: ^5.1.0
   http: ^1.2.0
 
+  # Formateo de fechas y números (MX locale)
+  intl: ^0.19.0
+
   # Markdown rendering para respuestas del chat
   flutter_markdown: ^0.7.4+1
 

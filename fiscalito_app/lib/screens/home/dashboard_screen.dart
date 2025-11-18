@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import '../../config/theme.dart';
 import '../../config/routes.dart';
 import '../../providers/navigation_provider.dart';
@@ -29,10 +32,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   /// Mensaje de error si falla la carga
   String? _errorMessage;
 
+  /// Estadísticas de facturas
+  int _totalFacturas = 0;
+  double _balanceTotal = 0.0;
+  bool _isLoadingEstadisticas = true;
+
   @override
   void initState() {
     super.initState();
     _loadDashboardData();
+    _loadEstadisticas();
   }
 
   /// Carga los datos del dashboard desde Firebase
@@ -82,6 +91,86 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  /// Carga las estadísticas de facturas desde Firestore
+  ///
+  /// Calcula:
+  /// - Total de facturas del usuario
+  /// - Balance total (ingresos - egresos)
+  Future<void> _loadEstadisticas() async {
+    setState(() {
+      _isLoadingEstadisticas = true;
+    });
+
+    try {
+      // Obtener el usuario actual
+      final currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser == null) {
+        throw 'No hay usuario autenticado';
+      }
+
+      final userId = currentUser.uid;
+
+      // Obtener todas las facturas del usuario desde Firestore
+      final snapshot = await FirebaseFirestore.instance
+          .collection('facturas')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      // Calcular estadísticas
+      final totalFacturas = snapshot.docs.length;
+
+      double totalIngresos = 0.0;
+      double totalEgresos = 0.0;
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+
+        // Obtener monto (puede venir como int o double)
+        final monto = (data['monto'] as num?)?.toDouble() ?? 0.0;
+
+        // Obtener tipo de factura (ingreso/egreso)
+        final tipo = (data['tipo'] as String?)?.toLowerCase() ?? '';
+
+        // Sumar según el tipo
+        if (tipo == 'ingreso') {
+          totalIngresos += monto;
+        } else if (tipo == 'egreso') {
+          totalEgresos += monto;
+        }
+      }
+
+      // Calcular balance total (ingresos - egresos)
+      final balanceTotal = totalIngresos - totalEgresos;
+
+      // Actualizar el estado
+      if (mounted) {
+        setState(() {
+          _totalFacturas = totalFacturas;
+          _balanceTotal = balanceTotal;
+          _isLoadingEstadisticas = false;
+        });
+      }
+    } catch (e) {
+      // Manejar errores
+      if (mounted) {
+        setState(() {
+          _totalFacturas = 0;
+          _balanceTotal = 0.0;
+          _isLoadingEstadisticas = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar estadísticas: $e'),
+            backgroundColor: AppTheme.errorRed,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
     }
   }
@@ -161,7 +250,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _loadDashboardData,
+        onRefresh: () async {
+          await Future.wait([
+            _loadDashboardData(),
+            _loadEstadisticas(),
+          ]);
+        },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(AppTheme.kPaddingScreen),
@@ -497,25 +591,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   /// Cards de estadísticas
   Widget _buildStatisticsCards() {
+    // Formatear el balance total con formato de moneda mexicana
+    final formatter = NumberFormat.currency(
+      locale: 'es_MX',
+      symbol: '\$',
+      decimalDigits: 2,
+    );
+
     return Row(
       children: [
         Expanded(
           child: _buildStatCard(
             title: 'Facturas',
-            value: '24',
-            subtitle: 'Este mes',
+            value: _isLoadingEstadisticas ? '...' : '$_totalFacturas',
+            subtitle: 'Total',
             icon: Icons.receipt_long,
             color: AppTheme.infoBlue,
+            isLoading: _isLoadingEstadisticas,
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _buildStatCard(
-            title: 'Total',
-            value: '\$12,450',
+            title: 'Balance',
+            value: _isLoadingEstadisticas
+                ? '...'
+                : formatter.format(_balanceTotal),
             subtitle: 'MXN',
             icon: Icons.attach_money,
-            color: AppTheme.successGreen,
+            color: _balanceTotal >= 0
+                ? AppTheme.successGreen
+                : AppTheme.errorRed,
+            isLoading: _isLoadingEstadisticas,
           ),
         ),
       ],
@@ -529,6 +636,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String subtitle,
     required IconData icon,
     required Color color,
+    bool isLoading = false,
   }) {
     return Container(
       decoration: AppTheme.cardDecoration(),
@@ -551,13 +659,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.bold,
+          // Mostrar loading o valor real
+          if (isLoading)
+            const SizedBox(
+              height: 32,
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppTheme.primaryMagenta,
+                    ),
+                  ),
                 ),
-          ),
+              ),
+            )
+          else
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
           const SizedBox(height: 4),
           Text(
             subtitle,
