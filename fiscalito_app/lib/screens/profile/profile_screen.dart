@@ -28,7 +28,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   /// Configuraciones
   bool _notificationsEnabled = true;
-  bool _biometricsEnabled = false;
 
   @override
   void initState() {
@@ -160,17 +159,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onChanged: (value) {
                     setState(() {
                       _notificationsEnabled = value;
-                    });
-                  },
-                ),
-                _buildSwitchTile(
-                  icon: Icons.fingerprint,
-                  label: 'Biometría',
-                  subtitle: 'Desbloquear con huella/Face ID',
-                  value: _biometricsEnabled,
-                  onChanged: (value) {
-                    setState(() {
-                      _biometricsEnabled = value;
                     });
                   },
                 ),
