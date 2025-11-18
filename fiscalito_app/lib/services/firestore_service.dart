@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
+import '../models/cfdi_model.dart';
 
 /// Servicio para interactuar con Firestore
 ///
@@ -31,6 +32,9 @@ class FirestoreService {
 
   /// Nombre de la colección de usuarios en Firestore
   static const String _usersCollection = 'users';
+
+  /// Nombre de la colección de facturas en Firestore
+  static const String _facturasCollection = 'facturas';
 
   /// Crea un nuevo documento de usuario en Firestore
   ///
@@ -304,6 +308,177 @@ class FirestoreService {
       return true;
     } catch (e) {
       return false;
+    }
+  }
+
+  // ============================================================
+  // MÉTODOS PARA FACTURAS (CFDI)
+  // ============================================================
+
+  /// Guarda una nueva factura en Firestore
+  ///
+  /// Parámetro:
+  /// - factura: CfdiModel con los datos de la factura
+  ///
+  /// Crea un nuevo documento en la colección 'facturas' con un ID auto-generado.
+  /// El campo userId debe estar presente para filtrar facturas por usuario.
+  ///
+  /// Ejemplo de uso:
+  /// ```dart
+  /// final factura = CfdiModel(
+  ///   userId: currentUser.uid,
+  ///   folio: 'A1234567',
+  ///   uuid: '12345678-1234-1234-1234-123456789012',
+  ///   emisor: 'Empresa SA',
+  ///   rfcEmisor: 'EMP123456789',
+  ///   monto: 1250.00,
+  ///   fecha: DateTime.now(),
+  ///   tipo: 'Ingreso',
+  ///   createdAt: DateTime.now(),
+  /// );
+  /// await firestoreService.saveFactura(factura);
+  /// ```
+  Future<void> saveFactura(CfdiModel factura) async {
+    try {
+      await _firestore
+          .collection(_facturasCollection)
+          .add(factura.toFirestore());
+    } catch (e) {
+      throw 'Error al guardar factura en Firestore: $e';
+    }
+  }
+
+  /// Obtiene todas las facturas de un usuario
+  ///
+  /// Parámetro:
+  /// - userId: UID del usuario dueño de las facturas
+  ///
+  /// Retorna una lista de CfdiModel ordenada por fecha descendente (más recientes primero).
+  ///
+  /// Ejemplo de uso:
+  /// ```dart
+  /// final facturas = await firestoreService.getFacturas(currentUser.uid);
+  /// print('Total de facturas: ${facturas.length}');
+  /// ```
+  Future<List<CfdiModel>> getFacturas(String userId) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection(_facturasCollection)
+          .where('userId', isEqualTo: userId)
+          .orderBy('fecha', descending: true)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => CfdiModel.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      throw 'Error al obtener facturas de Firestore: $e';
+    }
+  }
+
+  /// Stream que escucha cambios en tiempo real de las facturas de un usuario
+  ///
+  /// Parámetro:
+  /// - userId: UID del usuario
+  ///
+  /// Retorna un Stream que emite una lista de CfdiModel cada vez que hay cambios.
+  /// Útil para mantener la UI actualizada automáticamente.
+  ///
+  /// Ejemplo de uso:
+  /// ```dart
+  /// firestoreService.getFacturasStream(currentUser.uid).listen((facturas) {
+  ///   setState(() {
+  ///     _facturas = facturas;
+  ///   });
+  /// });
+  /// ```
+  Stream<List<CfdiModel>> getFacturasStream(String userId) {
+    return _firestore
+        .collection(_facturasCollection)
+        .where('userId', isEqualTo: userId)
+        .orderBy('fecha', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) => CfdiModel.fromFirestore(doc)).toList();
+    });
+  }
+
+  /// Elimina una factura de Firestore
+  ///
+  /// Parámetro:
+  /// - facturaId: ID del documento de la factura a eliminar
+  ///
+  /// IMPORTANTE: Esta acción es irreversible.
+  /// Asegúrate de confirmar con el usuario antes de eliminar.
+  ///
+  /// Ejemplo de uso:
+  /// ```dart
+  /// // Confirmar con el usuario primero
+  /// if (userConfirmed) {
+  ///   await firestoreService.deleteFactura(factura.id!);
+  /// }
+  /// ```
+  Future<void> deleteFactura(String facturaId) async {
+    try {
+      await _firestore
+          .collection(_facturasCollection)
+          .doc(facturaId)
+          .delete();
+    } catch (e) {
+      throw 'Error al eliminar factura de Firestore: $e';
+    }
+  }
+
+  /// Actualiza una factura existente
+  ///
+  /// Parámetros:
+  /// - facturaId: ID del documento de la factura
+  /// - data: Map con los campos a actualizar
+  ///
+  /// Solo actualiza los campos especificados, sin tocar los demás.
+  ///
+  /// Ejemplo de uso:
+  /// ```dart
+  /// await firestoreService.updateFactura(factura.id!, {
+  ///   'monto': 1500.00,
+  ///   'tipo': 'Egreso',
+  /// });
+  /// ```
+  Future<void> updateFactura(String facturaId, Map<String, dynamic> data) async {
+    try {
+      await _firestore
+          .collection(_facturasCollection)
+          .doc(facturaId)
+          .update(data);
+    } catch (e) {
+      throw 'Error al actualizar factura en Firestore: $e';
+    }
+  }
+
+  /// Obtiene el total de facturas de un usuario por tipo
+  ///
+  /// Parámetros:
+  /// - userId: UID del usuario
+  /// - tipo: "Ingreso" o "Egreso"
+  ///
+  /// Retorna la suma total de todas las facturas del tipo especificado.
+  ///
+  /// Ejemplo de uso:
+  /// ```dart
+  /// final totalIngresos = await firestoreService.getTotalByTipo(
+  ///   currentUser.uid,
+  ///   'Ingreso',
+  /// );
+  /// print('Total ingresos: \$$totalIngresos');
+  /// ```
+  Future<double> getTotalByTipo(String userId, String tipo) async {
+    try {
+      final facturas = await getFacturas(userId);
+      return facturas
+          .where((f) => f.tipo == tipo)
+          .fold<double>(0.0, (sum, f) => sum + f.monto);
+    } catch (e) {
+      throw 'Error al calcular total por tipo: $e';
     }
   }
 }

@@ -5,21 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e8a77aae-465a-47d1-a1a9-dda5f1de4650" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/android/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/android/app/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/android/settings.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/android/settings.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/lib/main.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/lib/screens/auth/login_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/lib/screens/auth/login_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/lib/screens/auth/register_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/lib/screens/auth/register_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/lib/screens/home/dashboard_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/lib/screens/home/dashboard_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/lib/screens/profile/change_password_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/lib/screens/profile/change_password_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/lib/screens/profile/domicilio_fiscal_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/lib/screens/profile/domicilio_fiscal_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/lib/screens/profile/edit_profile_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/lib/screens/profile/edit_profile_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/lib/screens/profile/profile_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/lib/screens/profile/profile_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/pubspec.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/pubspec.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/windows/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/windows/flutter/generated_plugin_registrant.cc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fiscalito_app/windows/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/windows/flutter/generated_plugins.cmake" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fiscalito_app/lib/screens/cfdi/cfdi_list_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/lib/screens/cfdi/cfdi_list_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fiscalito_app/lib/screens/cfdi/cfdi_upload_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/lib/screens/cfdi/cfdi_upload_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fiscalito_app/lib/services/firestore_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fiscalito_app/lib/services/firestore_service.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -40,20 +30,21 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
-    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
-    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Rykard/fiscalito&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "C:/Users/Rykard/fiscalito",
+    "settings.editor.selected.configurable": "device.mirroring"
   }
-}</component>
+}]]></component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="e8a77aae-465a-47d1-a1a9-dda5f1de4650" name="Changes" comment="" />

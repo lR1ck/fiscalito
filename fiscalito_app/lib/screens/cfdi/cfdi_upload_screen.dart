@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../config/theme.dart';
+import '../../models/cfdi_model.dart';
+import '../../services/firestore_service.dart';
 
-/// Pantalla para subir/escanear facturas (CFDI)
+/// Pantalla para agregar facturas (CFDI) mediante formulario manual
 ///
-/// Permite al usuario:
-/// - Subir archivos XML de CFDI
-/// - Escanear facturas físicas con OCR
-/// - Ver preview de la información extraída
-///
-/// Por ahora es solo UI mock. En producción se integraría
-/// con file_picker, camera, y Tesseract/Google ML Kit para OCR.
+/// Permite al usuario ingresar los datos de una factura:
+/// - Folio
+/// - UUID (Folio Fiscal)
+/// - Emisor (Razón Social)
+/// - RFC del Emisor
+/// - Monto
+/// - Fecha
+/// - Tipo (Ingreso/Egreso)
 class CfdiUploadScreen extends StatefulWidget {
   const CfdiUploadScreen({super.key});
 
@@ -18,191 +23,259 @@ class CfdiUploadScreen extends StatefulWidget {
 }
 
 class _CfdiUploadScreenState extends State<CfdiUploadScreen> {
-  /// Datos extraídos del CFDI (mock)
-  Map<String, String>? _extractedData;
+  /// Clave del formulario para validación
+  final _formKey = GlobalKey<FormState>();
+
+  /// Servicio de Firestore
+  final _firestoreService = FirestoreService();
+
+  /// Controladores de texto para cada campo
+  final _folioController = TextEditingController();
+  final _uuidController = TextEditingController();
+  final _emisorController = TextEditingController();
+  final _rfcEmisorController = TextEditingController();
+  final _montoController = TextEditingController();
+
+  /// Fecha seleccionada
+  DateTime _selectedDate = DateTime.now();
+
+  /// Tipo de factura seleccionado
+  String _selectedTipo = 'Ingreso';
 
   /// Estado de carga
-  bool _isProcessing = false;
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    // Limpiar controladores
+    _folioController.dispose();
+    _uuidController.dispose();
+    _emisorController.dispose();
+    _rfcEmisorController.dispose();
+    _montoController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Subir Factura'),
+        title: const Text('Agregar Factura'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: _extractedData == null
-          ? _buildUploadOptions()
-          : _buildPreview(),
-    );
-  }
-
-  /// Construye las opciones de subida
-  Widget _buildUploadOptions() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.kPaddingScreen),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header
-          const Icon(
-            Icons.cloud_upload_outlined,
-            size: 80,
-            color: AppTheme.primaryMagenta,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Sube tu factura',
-            style: Theme.of(context).textTheme.headlineMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Elige cómo quieres agregar tu CFDI',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 40),
-
-          // Opción 1: Subir XML
-          _buildUploadOption(
-            icon: Icons.insert_drive_file_outlined,
-            title: 'Subir archivo XML',
-            description: 'Selecciona el archivo XML de tu factura',
-            color: AppTheme.infoBlue,
-            onTap: _handleUploadXml,
-          ),
-
-          const SizedBox(height: 16),
-
-          // Opción 2: Escanear con cámara
-          _buildUploadOption(
-            icon: Icons.camera_alt_outlined,
-            title: 'Escanear con cámara',
-            description: 'Toma una foto de tu factura física',
-            color: AppTheme.successGreen,
-            onTap: _handleScanCamera,
-          ),
-
-          const SizedBox(height: 16),
-
-          // Opción 3: Seleccionar de galería
-          _buildUploadOption(
-            icon: Icons.photo_library_outlined,
-            title: 'Desde galería',
-            description: 'Elige una foto de tu factura',
-            color: AppTheme.warningOrange,
-            onTap: _handlePickFromGallery,
-          ),
-
-          const SizedBox(height: 32),
-
-          // Información adicional
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.infoBlue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(AppTheme.kBorderRadiusCard),
-              border: Border.all(
-                color: AppTheme.infoBlue.withOpacity(0.3),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.info_outline,
-                      color: AppTheme.infoBlue,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '¿Qué es un CFDI?',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: AppTheme.infoBlue,
-                          ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'El CFDI (Comprobante Fiscal Digital por Internet) es una factura electrónica '
-                  'en formato XML que contiene toda la información de una transacción.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Construye una opción de subida
-  Widget _buildUploadOption({
-    required IconData icon,
-    required String title,
-    required String description,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: AppTheme.surfaceCard,
-      borderRadius: BorderRadius.circular(AppTheme.kBorderRadiusCard),
-      child: InkWell(
-        onTap: _isProcessing ? null : onTap,
-        borderRadius: BorderRadius.circular(AppTheme.kBorderRadiusCard),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: color.withOpacity(0.3),
-              width: 2,
-            ),
-            borderRadius: BorderRadius.circular(AppTheme.kBorderRadiusCard),
-          ),
-          child: Row(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppTheme.kPaddingScreen),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Header con ícono
+              const Icon(
+                Icons.receipt_long,
+                size: 80,
+                color: AppTheme.primaryMagenta,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Datos de la factura',
+                style: Theme.of(context).textTheme.headlineMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Ingresa la información de tu CFDI',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 32),
+
+              // Campo: Folio
+              _buildTextField(
+                controller: _folioController,
+                label: 'Folio',
+                hint: 'Ej: A1234567',
+                icon: Icons.tag,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'El folio es obligatorio';
+                  }
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // Campo: UUID (Folio Fiscal)
+              _buildTextField(
+                controller: _uuidController,
+                label: 'UUID / Folio Fiscal',
+                hint: 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX',
+                icon: Icons.fingerprint,
+                maxLength: 36,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'El UUID es obligatorio';
+                  }
+                  if (value.length != 36) {
+                    return 'El UUID debe tener 36 caracteres';
+                  }
+                  // Validar formato UUID básico
+                  final uuidRegex = RegExp(
+                    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+                  );
+                  if (!uuidRegex.hasMatch(value)) {
+                    return 'Formato de UUID inválido';
+                  }
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // Campo: Emisor
+              _buildTextField(
+                controller: _emisorController,
+                label: 'Emisor / Razón Social',
+                hint: 'Nombre de la empresa',
+                icon: Icons.business,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'El emisor es obligatorio';
+                  }
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // Campo: RFC Emisor
+              _buildTextField(
+                controller: _rfcEmisorController,
+                label: 'RFC del Emisor',
+                hint: 'ABC123456789',
+                icon: Icons.badge,
+                maxLength: 13,
+                textCapitalization: TextCapitalization.characters,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'El RFC es obligatorio';
+                  }
+                  final length = value.length;
+                  if (length != 12 && length != 13) {
+                    return 'El RFC debe tener 12 o 13 caracteres';
+                  }
+                  // Validar formato RFC básico (alfanumérico)
+                  final rfcRegex = RegExp(r'^[A-Z0-9]{12,13}$');
+                  if (!rfcRegex.hasMatch(value.toUpperCase())) {
+                    return 'Formato de RFC inválido';
+                  }
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // Campo: Monto
+              _buildTextField(
+                controller: _montoController,
+                label: 'Monto Total',
+                hint: '0.00',
+                icon: Icons.attach_money,
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                ],
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'El monto es obligatorio';
+                  }
+                  final monto = double.tryParse(value);
+                  if (monto == null) {
+                    return 'Ingresa un monto válido';
+                  }
+                  if (monto <= 0) {
+                    return 'El monto debe ser mayor a 0';
+                  }
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // Campo: Fecha (DatePicker)
+              _buildDateField(),
+
+              const SizedBox(height: 16),
+
+              // Campo: Tipo (Dropdown)
+              _buildTipoDropdown(),
+
+              const SizedBox(height: 32),
+
+              // Botón Guardar
+              ElevatedButton(
+                onPressed: _isSaving ? null : _handleSaveFactura,
+                child: _isSaving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text('Guardar Factura'),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Información adicional
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppTheme.infoBlue.withOpacity(0.1),
+                  borderRadius:
+                      BorderRadius.circular(AppTheme.kBorderRadiusCard),
+                  border: Border.all(
+                    color: AppTheme.infoBlue.withOpacity(0.3),
+                  ),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          color: AppTheme.infoBlue,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '¿Dónde encuentro estos datos?',
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    color: AppTheme.infoBlue,
+                                  ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
                     Text(
-                      description,
+                      'Toda esta información se encuentra en tu factura (CFDI) en formato XML o PDF. '
+                      'El UUID es el Folio Fiscal único de 36 caracteres.',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: color,
               ),
             ],
           ),
@@ -211,223 +284,276 @@ class _CfdiUploadScreenState extends State<CfdiUploadScreen> {
     );
   }
 
-  /// Construye el preview de la factura
-  Widget _buildPreview() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.kPaddingScreen),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+  /// Construye un campo de texto estándar
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    String? Function(String?)? validator,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    int? maxLength,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+  }) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon, color: AppTheme.primaryMagenta),
+        filled: true,
+        fillColor: AppTheme.surfaceElevated,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kBorderRadiusButton),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kBorderRadiusButton),
+          borderSide: BorderSide(
+            color: AppTheme.textSecondary.withOpacity(0.2),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kBorderRadiusButton),
+          borderSide: const BorderSide(
+            color: AppTheme.primaryMagenta,
+            width: 2,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kBorderRadiusButton),
+          borderSide: const BorderSide(
+            color: AppTheme.errorRed,
+          ),
+        ),
+        counterText: '', // Ocultar contador de caracteres
+      ),
+      validator: validator,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      maxLength: maxLength,
+      textCapitalization: textCapitalization,
+    );
+  }
+
+  /// Construye el campo de fecha con DatePicker
+  Widget _buildDateField() {
+    return InkWell(
+      onTap: _showDatePicker,
+      borderRadius: BorderRadius.circular(AppTheme.kBorderRadiusButton),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceElevated,
+          borderRadius: BorderRadius.circular(AppTheme.kBorderRadiusButton),
+          border: Border.all(
+            color: AppTheme.textSecondary.withOpacity(0.2),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.calendar_today,
+              color: AppTheme.primaryMagenta,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Fecha de emisión',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatDate(_selectedDate),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_drop_down,
+              color: AppTheme.textSecondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Construye el dropdown de tipo de factura
+  Widget _buildTipoDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceElevated,
+        borderRadius: BorderRadius.circular(AppTheme.kBorderRadiusButton),
+        border: Border.all(
+          color: AppTheme.textSecondary.withOpacity(0.2),
+        ),
+      ),
+      child: Row(
         children: [
-          // Icono de éxito
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppTheme.successGreen.withOpacity(0.2),
-              shape: BoxShape.circle,
+          Icon(
+            _selectedTipo == 'Ingreso'
+                ? Icons.arrow_downward
+                : Icons.arrow_upward,
+            color: _selectedTipo == 'Ingreso'
+                ? AppTheme.successGreen
+                : AppTheme.errorRed,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedTipo,
+                isExpanded: true,
+                dropdownColor: AppTheme.surfaceCard,
+                items: const [
+                  DropdownMenuItem(
+                    value: 'Ingreso',
+                    child: Text('Ingreso (dinero que entra)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Egreso',
+                    child: Text('Egreso (dinero que sale)'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedTipo = value;
+                    });
+                  }
+                },
+              ),
             ),
-            child: const Icon(
-              Icons.check_circle_outline,
-              size: 60,
-              color: AppTheme.successGreen,
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          Text(
-            'Factura procesada',
-            style: Theme.of(context).textTheme.headlineMedium,
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 8),
-
-          Text(
-            'Revisa la información extraída',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 32),
-
-          // Card con datos extraídos
-          Container(
-            decoration: AppTheme.cardDecoration(),
-            padding: const EdgeInsets.all(AppTheme.kPaddingCard),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Datos del CFDI',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 16),
-
-                // Campos extraídos
-                ..._extractedData!.entries.map((entry) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entry.key,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppTheme.textSecondary,
-                                  ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          entry.value,
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Botones de acción
-          ElevatedButton(
-            onPressed: _handleSaveCfdi,
-            child: const Text('Guardar factura'),
-          ),
-
-          const SizedBox(height: 12),
-
-          OutlinedButton(
-            onPressed: () {
-              setState(() {
-                _extractedData = null;
-              });
-            },
-            child: const Text('Subir otra factura'),
           ),
         ],
       ),
     );
   }
 
-  /// Maneja la subida de archivo XML
-  void _handleUploadXml() async {
-    setState(() => _isProcessing = true);
+  /// Muestra el DatePicker
+  Future<void> _showDatePicker() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppTheme.primaryMagenta,
+              onPrimary: Colors.white,
+              surface: AppTheme.surfaceCard,
+              onSurface: AppTheme.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
 
-    // TODO: Implementar file_picker
-    // final result = await FilePicker.platform.pickFiles(
-    //   type: FileType.custom,
-    //   allowedExtensions: ['xml'],
-    // );
-
-    // Simular procesamiento
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (!mounted) return;
-
-    setState(() {
-      _isProcessing = false;
-      _extractedData = {
-        'Folio Fiscal (UUID)': '12345678-ABCD-1234-ABCD-123456789012',
-        'Emisor': 'Tienda Ejemplo SA de CV',
-        'RFC Emisor': 'TEM123456789',
-        'Receptor': 'Juan Pérez García',
-        'RFC Receptor': 'XAXX010101000',
-        'Fecha': '15 de diciembre, 2025',
-        'Total': '\$1,250.00 MXN',
-        'Tipo': 'Ingreso',
-      };
-    });
-  }
-
-  /// Maneja el escaneo con cámara
-  void _handleScanCamera() async {
-    setState(() => _isProcessing = true);
-
-    // TODO: Implementar camera + OCR
-    // final image = await ImagePicker().pickImage(source: ImageSource.camera);
-    // final text = await TesseractOcr.extractText(image.path);
-
-    // Simular procesamiento
-    await Future.delayed(const Duration(seconds: 3));
-
-    if (!mounted) return;
-
-    setState(() {
-      _isProcessing = false;
-      _extractedData = {
-        'Folio Fiscal (UUID)': '98765432-DCBA-4321-DCBA-987654321098',
-        'Emisor': 'Restaurante El Sabor',
-        'RFC Emisor': 'RES987654321',
-        'Receptor': 'Juan Pérez García',
-        'RFC Receptor': 'XAXX010101000',
-        'Fecha': '14 de diciembre, 2025',
-        'Total': '\$450.00 MXN',
-        'Tipo': 'Egreso',
-      };
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Factura escaneada con OCR (simulado)'),
-          backgroundColor: AppTheme.successGreen,
-        ),
-      );
+    if (pickedDate != null) {
+      setState(() {
+        _selectedDate = pickedDate;
+      });
     }
   }
 
-  /// Maneja la selección desde galería
-  void _handlePickFromGallery() async {
-    setState(() => _isProcessing = true);
-
-    // TODO: Implementar image_picker + OCR
-    // final image = await ImagePicker().pickImage(source: ImageSource.gallery);
-    // final text = await TesseractOcr.extractText(image.path);
-
-    // Simular procesamiento
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (!mounted) return;
-
-    setState(() {
-      _isProcessing = false;
-      _extractedData = {
-        'Folio Fiscal (UUID)': 'ABCD1234-5678-9012-3456-7890ABCDEF12',
-        'Emisor': 'Gasolinera La Estrella',
-        'RFC Emisor': 'GES456789012',
-        'Receptor': 'Juan Pérez García',
-        'RFC Receptor': 'XAXX010101000',
-        'Fecha': '13 de diciembre, 2025',
-        'Total': '\$850.00 MXN',
-        'Tipo': 'Egreso',
-      };
-    });
+  /// Formatea la fecha
+  String _formatDate(DateTime date) {
+    final months = [
+      'enero',
+      'febrero',
+      'marzo',
+      'abril',
+      'mayo',
+      'junio',
+      'julio',
+      'agosto',
+      'septiembre',
+      'octubre',
+      'noviembre',
+      'diciembre'
+    ];
+    return '${date.day} de ${months[date.month - 1]}, ${date.year}';
   }
 
-  /// Guarda el CFDI
-  void _handleSaveCfdi() {
-    // TODO: Guardar en Firestore
-    // await FirestoreService.saveCfdi(_extractedData);
+  /// Guarda la factura en Firestore
+  Future<void> _handleSaveFactura() async {
+    // Validar formulario
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Factura guardada correctamente'),
-        backgroundColor: AppTheme.successGreen,
-      ),
-    );
+    // Obtener UID del usuario actual
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: Usuario no autenticado'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+      return;
+    }
 
-    // Volver a la lista de facturas
-    Navigator.pop(context);
+    setState(() => _isSaving = true);
+
+    try {
+      // Crear modelo de factura
+      final factura = CfdiModel(
+        userId: user.uid,
+        folio: _folioController.text.trim(),
+        uuid: _uuidController.text.trim(),
+        emisor: _emisorController.text.trim(),
+        rfcEmisor: _rfcEmisorController.text.trim().toUpperCase(),
+        monto: double.parse(_montoController.text.trim()),
+        fecha: _selectedDate,
+        tipo: _selectedTipo,
+        createdAt: DateTime.now(),
+      );
+
+      // Guardar en Firestore
+      await _firestoreService.saveFactura(factura);
+
+      if (!mounted) return;
+
+      // Mostrar mensaje de éxito
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Factura guardada correctamente'),
+          backgroundColor: AppTheme.successGreen,
+        ),
+      );
+
+      // Volver a la lista
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+
+      // Mostrar error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al guardar factura: $e'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 }
