@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../config/routes.dart';
+import '../../config/regimenes_fiscales.dart';
 import '../../providers/auth_provider.dart' as AppAuth;
 
 /// Pantalla de registro de nuevo usuario
@@ -44,6 +45,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   /// Aceptación de términos y condiciones
   bool _acceptedTerms = false;
+
+  /// Régimen fiscal seleccionado
+  RegimenFiscal? _selectedRegimen;
 
   @override
   void dispose() {
@@ -143,6 +147,73 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
+  /// Muestra un diálogo de ayuda sobre los regímenes fiscales
+  void _showRegimenHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.help_outline, color: AppTheme.primaryMagenta),
+            const SizedBox(width: 8),
+            const Text('Regímenes Fiscales'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Tu régimen fiscal define cómo declaras tus impuestos ante el SAT. '
+                'Los más comunes son:\n',
+                style: TextStyle(color: AppTheme.textSecondary),
+              ),
+              ...regimenesFiscales.take(4).map((regimen) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${regimen.codigo} - ${regimen.nombre}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryMagenta,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          regimen.descripcion,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+              const Text(
+                '\nSi no estás seguro, consulta tu Constancia de Situación Fiscal '
+                'en el portal del SAT.',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Maneja el registro del usuario
   ///
   /// Crea el usuario en Firebase Auth y guarda sus datos en Firestore.
@@ -176,6 +247,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passwordController.text,
         name: _nameController.text.trim(),
         rfc: _rfcController.text.trim().toUpperCase(),
+        regimenFiscalCodigo: _selectedRegimen!.codigo,
+        regimenFiscalNombre: _selectedRegimen!.nombre,
       );
 
       // Detener loading ANTES de mostrar SnackBar y navegar
@@ -314,6 +387,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon: Icon(Icons.badge_outlined),
                     helperText: '13 caracteres alfanuméricos',
                   ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Dropdown de régimen fiscal
+                DropdownButtonFormField<RegimenFiscal>(
+                  value: _selectedRegimen,
+                  decoration: InputDecoration(
+                    labelText: 'Régimen Fiscal',
+                    hintText: 'Selecciona tu régimen fiscal',
+                    prefixIcon: const Icon(Icons.account_balance_outlined),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.help_outline),
+                      onPressed: _isLoading ? null : _showRegimenHelpDialog,
+                      tooltip: '¿Qué es el régimen fiscal?',
+                    ),
+                  ),
+                  isExpanded: true,
+                  items: regimenesFiscales.map((regimen) {
+                    return DropdownMenuItem<RegimenFiscal>(
+                      value: regimen,
+                      child: Text(
+                        regimen.formateado,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: _isLoading
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _selectedRegimen = value;
+                          });
+                        },
+                  validator: (value) {
+                    if (value == null) {
+                      return 'Por favor selecciona tu régimen fiscal';
+                    }
+                    return null;
+                  },
                 ),
 
                 const SizedBox(height: 16),

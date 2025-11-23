@@ -158,6 +158,8 @@ class AuthProvider with ChangeNotifier {
   /// - password: Contraseña
   /// - name: Nombre completo
   /// - rfc: RFC del usuario
+  /// - regimenFiscalCodigo: Código del régimen fiscal (ej: "626")
+  /// - regimenFiscalNombre: Nombre del régimen fiscal (ej: "RESICO")
   ///
   /// Crea el usuario en Firebase Auth Y guarda sus datos en Firestore.
   ///
@@ -167,10 +169,12 @@ class AuthProvider with ChangeNotifier {
   /// ```dart
   /// try {
   ///   await authProvider.signUp(
-  ///     'user@example.com',
-  ///     'password123',
-  ///     'Juan Pérez',
-  ///     'XAXX010101000',
+  ///     email: 'user@example.com',
+  ///     password: 'password123',
+  ///     name: 'Juan Pérez',
+  ///     rfc: 'XAXX010101000',
+  ///     regimenFiscalCodigo: '626',
+  ///     regimenFiscalNombre: 'RESICO',
   ///   );
   ///   // Navegar al dashboard
   /// } catch (e) {
@@ -183,6 +187,8 @@ class AuthProvider with ChangeNotifier {
     required String password,
     required String name,
     required String rfc,
+    required String regimenFiscalCodigo,
+    required String regimenFiscalNombre,
   }) async {
     _isProcessing = true;
     notifyListeners();
@@ -194,12 +200,14 @@ class AuthProvider with ChangeNotifier {
         password: password,
       );
 
-      // 2. Crear modelo de usuario
+      // 2. Crear modelo de usuario con régimen fiscal
       final userModel = UserModel(
         uid: firebaseUser.uid,
         name: name.trim(),
         email: email.trim().toLowerCase(),
         rfc: rfc.trim().toUpperCase(),
+        regimenFiscalCodigo: regimenFiscalCodigo,
+        regimenFiscalNombre: regimenFiscalNombre,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );

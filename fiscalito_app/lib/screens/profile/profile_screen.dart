@@ -131,7 +131,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _buildInfoTile(
                   icon: Icons.business_outlined,
                   label: 'Régimen Fiscal',
-                  value: 'RESICO',
+                  value: _userData?.tieneRegimenFiscal == true
+                      ? _userData!.regimenFiscalNombre
+                      : 'No configurado',
                   onTap: () {
                     AppRoutes.pushNamed(context, AppRoutes.regimenFiscal);
                   },
