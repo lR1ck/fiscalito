@@ -39,6 +39,9 @@ class CfdiModel {
   /// RFC del emisor (12-13 caracteres alfanuméricos)
   final String rfcEmisor;
 
+  /// RFC del receptor (12-13 caracteres alfanuméricos)
+  final String rfcReceptor;
+
   /// Monto total de la factura en MXN
   final double monto;
 
@@ -59,6 +62,7 @@ class CfdiModel {
     required this.uuid,
     required this.emisor,
     required this.rfcEmisor,
+    this.rfcReceptor = '',
     required this.monto,
     required this.fecha,
     required this.tipo,
@@ -85,6 +89,7 @@ class CfdiModel {
       uuid: data['uuid'] ?? '',
       emisor: data['emisor'] ?? '',
       rfcEmisor: data['rfcEmisor'] ?? '',
+      rfcReceptor: data['rfcReceptor'] ?? '',
       monto: (data['monto'] ?? 0.0).toDouble(),
       fecha: (data['fecha'] as Timestamp?)?.toDate() ?? DateTime.now(),
       tipo: data['tipo'] ?? 'Ingreso',
@@ -109,6 +114,7 @@ class CfdiModel {
       'uuid': uuid,
       'emisor': emisor,
       'rfcEmisor': rfcEmisor,
+      'rfcReceptor': rfcReceptor,
       'monto': monto,
       'fecha': Timestamp.fromDate(fecha),
       'tipo': tipo,
@@ -134,6 +140,7 @@ class CfdiModel {
     String? uuid,
     String? emisor,
     String? rfcEmisor,
+    String? rfcReceptor,
     double? monto,
     DateTime? fecha,
     String? tipo,
@@ -146,6 +153,7 @@ class CfdiModel {
       uuid: uuid ?? this.uuid,
       emisor: emisor ?? this.emisor,
       rfcEmisor: rfcEmisor ?? this.rfcEmisor,
+      rfcReceptor: rfcReceptor ?? this.rfcReceptor,
       monto: monto ?? this.monto,
       fecha: fecha ?? this.fecha,
       tipo: tipo ?? this.tipo,

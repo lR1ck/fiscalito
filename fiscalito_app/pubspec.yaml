@@ -52,6 +52,9 @@ dependencies:
   # Markdown rendering para respuestas del chat
   flutter_markdown: ^0.7.4+1
 
+  # Escaneo de códigos QR
+  mobile_scanner: ^7.1.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

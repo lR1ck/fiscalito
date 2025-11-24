@@ -473,65 +473,101 @@ class _CfdiListScreenState extends State<CfdiListScreen> {
 
   /// Muestra los detalles de una factura
   void _showFacturaDetails(CfdiModel factura) {
+    // Determinar si el emisor es diferente del RFC (tiene nombre real)
+    final bool tieneNombreEmisor = factura.emisor.isNotEmpty &&
+        factura.emisor != factura.rfcEmisor;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.surfaceCard,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return SingleChildScrollView(
+              controller: scrollController,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Detalles de la factura',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  // Handle de arrastre
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.textSecondary.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Detalles de la factura',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  _buildDetailRow('Folio', factura.folio),
+                  _buildDetailRow('UUID', factura.uuid),
+                  // Solo mostrar "Emisor" si tiene nombre diferente al RFC
+                  if (tieneNombreEmisor)
+                    _buildDetailRow('Emisor', factura.emisor),
+                  _buildDetailRow('RFC Emisor', factura.rfcEmisor),
+                  // Mostrar RFC Receptor si existe
+                  if (factura.rfcReceptor.isNotEmpty)
+                    _buildDetailRow('RFC Receptor', factura.rfcReceptor),
+                  _buildDetailRow(
+                    'Monto',
+                    '\$${factura.monto.toStringAsFixed(2)} MXN',
+                  ),
+                  _buildDetailRow('Fecha', _formatDate(factura.fecha)),
+                  _buildDetailRow('Tipo', factura.tipo),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        final confirmed = await _confirmDelete(factura);
+                        if (confirmed == true && factura.id != null) {
+                          await _deleteFactura(factura.id!);
+                        }
+                      },
+                      icon: const Icon(Icons.delete, color: AppTheme.errorRed),
+                      label: const Text(
+                        'Eliminar factura',
+                        style: TextStyle(color: AppTheme.errorRed),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppTheme.errorRed),
+                      ),
+                    ),
+                  ),
+                  // Espacio extra para scroll
+                  const SizedBox(height: 16),
                 ],
               ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 16),
-              _buildDetailRow('Folio', factura.folio),
-              _buildDetailRow('UUID', factura.uuid),
-              _buildDetailRow('Emisor', factura.emisor),
-              _buildDetailRow('RFC Emisor', factura.rfcEmisor),
-              _buildDetailRow(
-                'Monto',
-                '\$${factura.monto.toStringAsFixed(2)} MXN',
-              ),
-              _buildDetailRow('Fecha', _formatDate(factura.fecha)),
-              _buildDetailRow('Tipo', factura.tipo),
-              const SizedBox(height: 24),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  final confirmed = await _confirmDelete(factura);
-                  if (confirmed == true && factura.id != null) {
-                    await _deleteFactura(factura.id!);
-                  }
-                },
-                icon: const Icon(Icons.delete, color: AppTheme.errorRed),
-                label: const Text(
-                  'Eliminar factura',
-                  style: TextStyle(color: AppTheme.errorRed),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppTheme.errorRed),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
