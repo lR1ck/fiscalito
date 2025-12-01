@@ -279,36 +279,6 @@ class _RFCDetailsScreenState extends State<RFCDetailsScreen> {
               ],
             ),
           ),
-
-          const SizedBox(height: 24),
-
-          // Botón descargar constancia
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _downloadConstancia(context),
-              icon: const Icon(Icons.download),
-              label: const Text('Descargar Constancia de Situación Fiscal'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.all(16),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Botón verificar en SAT
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => _verifyInSAT(context),
-              icon: const Icon(Icons.open_in_new),
-              label: const Text('Verificar en portal del SAT'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.all(16),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -410,23 +380,6 @@ class _RFCDetailsScreenState extends State<RFCDetailsScreen> {
       const SnackBar(
         content: Text('RFC copiado al portapapeles'),
         duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
-  void _downloadConstancia(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Función de descarga próximamente'),
-        backgroundColor: AppTheme.infoBlue,
-      ),
-    );
-  }
-
-  void _verifyInSAT(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Abriendo portal del SAT (simulado)'),
       ),
     );
   }
