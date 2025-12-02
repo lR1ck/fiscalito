@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme.dart';
+import '../../config/quick_replies.dart';
 import '../../services/openai_service.dart';
+import '../../providers/auth_provider.dart';
 
 /// Pantalla de chat con el asistente AI Fiscalito
 ///
@@ -77,8 +80,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// Envía un mensaje al chat
-  Future<void> _sendMessage() async {
-    final text = _messageController.text.trim();
+  ///
+  /// [customText] Texto opcional para enviar directamente (usado por quick replies)
+  Future<void> _sendMessage({String? customText}) async {
+    final text = customText ?? _messageController.text.trim();
 
     if (text.isEmpty || _isProcessing) return;
 
@@ -92,8 +97,10 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       );
 
-      // Limpiar input
-      _messageController.clear();
+      // Limpiar input solo si no es custom text
+      if (customText == null) {
+        _messageController.clear();
+      }
 
       // Mostrar indicador de "escribiendo..." y deshabilitar input
       _isTyping = true;
@@ -101,7 +108,29 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
+      // ==================== CONTEXTO DE USUARIO ====================
+      // IMPORTANTE: Se obtiene el usuario actual en CADA llamada a _sendMessage()
+      // para garantizar que el contexto (nombre, RFC, régimen fiscal) se envíe
+      // a OpenAI en TODOS los mensajes, sin importar cuántos lleve la conversación.
+      //
+      // Esto asegura que la AI NUNCA "olvide" quién es el usuario.
+      // =============================================================
+
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final currentUser = authProvider.currentUserModel;
+
+      // Debug: Verificar que tenemos usuario antes de enviar
+      // TODO: Comentar/eliminar en producción
+      if (currentUser != null) {
+        print('[ChatScreen] Enviando mensaje con contexto de usuario:');
+        print('  - Usuario: ${currentUser.name}');
+        print('  - Régimen: ${currentUser.tieneRegimenFiscal ? currentUser.regimenFiscalFormateado : "No configurado"}');
+      } else {
+        print('[ChatScreen] ADVERTENCIA: Usuario es null, la AI no tendrá contexto personalizado');
+      }
+
       // Construir historial de conversación para OpenAI
+      // Incluye todos los mensajes intercambiados hasta ahora
       final conversationHistory = _messages
           .map((msg) => {
                 'role': msg.isUser ? 'user' : 'assistant',
@@ -109,8 +138,14 @@ class _ChatScreenState extends State<ChatScreen> {
               })
           .toList();
 
-      // Llamar a OpenAI API
-      final response = await _openAIService.sendMessage(conversationHistory);
+      // Llamar a OpenAI API con contexto del usuario
+      // NOTA CRÍTICA: El parámetro 'user' se pasa en CADA llamada,
+      // garantizando que OpenAIService reconstruya el system prompt
+      // con contexto actualizado en cada request a la API.
+      final response = await _openAIService.sendMessage(
+        conversationHistory,
+        user: currentUser, // ← Se pasa SIEMPRE, en cada mensaje
+      );
 
       if (!mounted) return;
 
@@ -164,6 +199,125 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: AppTheme.errorRed,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  /// Determina si se deben mostrar las quick replies
+  ///
+  /// Se muestran solo cuando:
+  /// 1. No hay mensajes de usuario en el historial (solo mensaje de bienvenida)
+  /// 2. No se está procesando un mensaje
+  bool _shouldShowQuickReplies() {
+    // Verificar si hay algún mensaje del usuario
+    final hasUserMessages = _messages.any((msg) => msg.isUser);
+
+    // Mostrar solo si no hay mensajes de usuario y no se está procesando
+    return !hasUserMessages && !_isProcessing;
+  }
+
+  /// Construye el widget de quick replies (sugerencias rápidas)
+  ///
+  /// Muestra chips horizontales con preguntas predeterminadas
+  /// según el régimen fiscal del usuario.
+  Widget _buildQuickReplies() {
+    // Obtener el régimen fiscal del usuario
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentUser = authProvider.currentUserModel;
+    final regimenCodigo = currentUser?.regimenFiscalCodigo ?? '';
+
+    // Obtener las quick replies según el régimen
+    final quickReplies = QuickRepliesHelper.getQuickReplies(regimenCodigo);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceCard,
+        border: Border(
+          top: BorderSide(
+            color: AppTheme.textDisabled.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Título de las sugerencias
+          Row(
+            children: [
+              const Icon(
+                Icons.lightbulb_outline,
+                size: 16,
+                color: AppTheme.primaryMagenta,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Sugerencias',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Lista horizontal de chips
+          SizedBox(
+            height: 36,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: quickReplies.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final reply = quickReplies[index];
+                return _buildQuickReplyChip(reply);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Construye un chip individual de quick reply
+  ///
+  /// [text] Texto del chip (pregunta sugerida)
+  Widget _buildQuickReplyChip(String text) {
+    return InkWell(
+      onTap: () => _sendMessage(customText: text),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppTheme.primaryMagenta,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              text,
+              style: const TextStyle(
+                color: AppTheme.primaryMagenta,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.arrow_forward,
+              size: 14,
+              color: AppTheme.primaryMagenta,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -263,6 +417,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     },
                   ),
           ),
+
+          // Quick Replies (solo cuando no hay mensajes de usuario)
+          if (_shouldShowQuickReplies()) _buildQuickReplies(),
 
           // Input de mensaje
           _buildMessageInput(),

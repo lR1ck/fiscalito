@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import '../models/user_model.dart';
 
 /// Servicio para integración con OpenAI API
 ///
@@ -246,6 +247,40 @@ NUNCA:
     return corrected;
   }
 
+  /// Construye el contexto personalizado del usuario para el system prompt
+  ///
+  /// Genera un texto con información del usuario (nombre, RFC, régimen fiscal)
+  /// que se agregará al system prompt para personalizar las respuestas de la AI.
+  ///
+  /// [user] Modelo del usuario con su información fiscal
+  ///
+  /// Retorna un string con el contexto formateado.
+  String _buildUserContextPrompt(UserModel user) {
+    final buffer = StringBuffer();
+
+    buffer.writeln('\n\nCONTEXTO DEL USUARIO:');
+    buffer.writeln('- Nombre: ${user.name}');
+
+    if (user.rfc.isNotEmpty) {
+      buffer.writeln('- RFC: ${user.rfc}');
+    }
+
+    if (user.tieneRegimenFiscal) {
+      buffer.writeln('- Régimen Fiscal: ${user.regimenFiscalFormateado}');
+      buffer.writeln(
+          '\nIMPORTANTE: El usuario está en el régimen ${user.regimenFiscalNombre} (${user.regimenFiscalCodigo}). '
+          'Personaliza tus respuestas considerando las particularidades de este régimen fiscal. '
+          'Si explicas conceptos o cálculos, hazlo específico para su régimen.');
+    } else {
+      buffer.writeln('- Régimen Fiscal: No configurado');
+      buffer.writeln(
+          '\nNOTA: El usuario aún no ha configurado su régimen fiscal. '
+          'Si es relevante, puedes ayudarle a identificar cuál le conviene.');
+    }
+
+    return buffer.toString();
+  }
+
   /// Envía un mensaje al chat y retorna la respuesta
   ///
   /// [messages] Lista de mensajes con formato:
@@ -257,6 +292,9 @@ NUNCA:
   /// ]
   /// ```
   ///
+  /// [user] (Opcional) Modelo del usuario para personalizar respuestas.
+  /// Si se proporciona, la AI tendrá contexto del nombre, RFC y régimen fiscal.
+  ///
   /// Retorna el mensaje de respuesta de la AI.
   ///
   /// Lanza excepciones con mensajes en español para diferentes errores:
@@ -265,14 +303,46 @@ NUNCA:
   /// - HTTP 401: 'API key inválida. Contacta al administrador.'
   /// - HTTP 429: 'Demasiadas solicitudes. Espera un momento.'
   /// - Otros: 'Error al conectar con el asistente.'
-  Future<String> sendMessage(List<Map<String, String>> messages) async {
+  Future<String> sendMessage(
+    List<Map<String, String>> messages, {
+    UserModel? user,
+  }) async {
     try {
       // Cargar knowledge base oficial del SAT
       final satKnowledge = await _loadSATKnowledge();
 
-      // Construir mensajes con system prompt y knowledge base
+      // ==================== CONTEXTO DE USUARIO ====================
+      // IMPORTANTE: El contexto del usuario se construye en CADA llamada
+      // a sendMessage(), garantizando que la AI SIEMPRE tenga información
+      // actualizada del usuario (nombre, RFC, régimen fiscal) sin importar
+      // cuántos mensajes lleve la conversación.
+      //
+      // El contexto se agrega al system prompt base y persiste durante
+      // toda la conversación porque se reconstruye en cada request.
+      // =============================================================
+
+      String finalSystemPrompt = _systemPrompt;
+      if (user != null) {
+        final userContext = _buildUserContextPrompt(user);
+        finalSystemPrompt += userContext;
+
+        // Debug: Verificar que el contexto se está agregando
+        // TODO: Comentar/eliminar en producción
+        print('[OpenAI] Contexto de usuario agregado:');
+        print('  - Nombre: ${user.name}');
+        print('  - RFC: ${user.rfc.isEmpty ? "No configurado" : user.rfc}');
+        print('  - Régimen: ${user.tieneRegimenFiscal ? user.regimenFiscalFormateado : "No configurado"}');
+        print('  - Mensajes en conversación: ${messages.length}');
+      } else {
+        // Advertencia: No hay contexto de usuario
+        print('[OpenAI] ADVERTENCIA: No se proporcionó UserModel, la AI no tendrá contexto personalizado');
+      }
+
+      // Construir mensajes con system prompt personalizado y knowledge base
+      // NOTA: Este array se construye desde cero en cada llamada, por lo que
+      // el system prompt con contexto de usuario SIEMPRE estará presente
       final messagesWithSystem = [
-        {'role': 'system', 'content': _systemPrompt},
+        {'role': 'system', 'content': finalSystemPrompt},
         if (satKnowledge.isNotEmpty)
           {
             'role': 'system',
